@@ -27,7 +27,8 @@ requirements = [
     'oslo.utils>=3.4.0',
     'pyyaml>=3.11',
     'taskflow>=1.25.0',
-    'yapf>=0.6.2'
+    'yapf>=0.6.2',
+    'wheel>=0.29.0'
 ]
 
 setuptools.setup(
