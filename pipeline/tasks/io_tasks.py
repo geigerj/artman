@@ -56,6 +56,8 @@ class BlobDownloadTask(task_base.TaskBase):
 
     It requires authentication be properly configured."""
 
+    default_provides = 'output_archive'
+
     def execute(self, bucket_name, path, output_dir):
         client = storage.Client()
         bucket = client.get_bucket(bucket_name)
@@ -72,6 +74,8 @@ class BlobDownloadTask(task_base.TaskBase):
         with open(filename, "w") as f:
             blob.download_to_file(f)
             print 'File downloaded to %s' % f.name
+
+        return f.name
 
 
 def _validate_upload_size(size, limit):

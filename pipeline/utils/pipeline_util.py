@@ -53,3 +53,4 @@ def download_from_gcs(bucket_name, path, output_dir):
     flow.add(io_tasks.BlobDownloadTask('BlobDownload'))
     engine = engines.load(flow, engine="serial", store=args)
     engine.run()
+    return engine.storage.fetch('output_archive')

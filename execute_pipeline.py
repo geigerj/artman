@@ -53,7 +53,14 @@ from pipeline.utils import job_util, pipeline_util, config_util
 
 
 def main(args):
-    pipeline_name, pipeline_kwargs, env, local_repo = _parse_args(args)
+    parser = _CreateArgumentParser()
+    run_from_flags(parser.parse_args(args))
+
+
+def run_from_flags(flags):
+    print 'calling main'
+
+    pipeline_name, pipeline_kwargs, env, local_repo = _parse_flags(flags)
 
     if local_repo:
         pipeline_kwargs = _load_local_repo(local_repo, **pipeline_kwargs)
@@ -68,7 +75,7 @@ def main(args):
         for task_detail in task_details:
             if task_detail.name.startswith('BlobUploadTask') and task_detail.results:
                 bucket_name, path, _ = task_detail.results
-                pipeline_util.download_from_gcs(
+                output_archive = pipeline_util.download_from_gcs(
                     bucket_name,
                     path,
                     os.path.join(tempfile.gettempdir(), 'artman-remote'))
@@ -77,6 +84,8 @@ def main(args):
             # Print the remote log if the pipeline execution completes but not
             # with SUCCESS status.
             _print_log(pipeline_kwargs['pipeline_id'])
+
+        return output_archive
 
     else:
         pipeline = pipeline_factory.make_pipeline(
@@ -113,7 +122,7 @@ def _CreateArgumentParser():
         type=str,
         default='..',
         help='Root directory where the input, '
-            + 'output, and tool repositories live')
+             'output, and tool repositories live')
     parser.add_argument(
         '--local_repo',
         type=str,
@@ -142,8 +151,10 @@ def _CreateArgumentParser():
 
 def _parse_args(args):
     parser = _CreateArgumentParser()
-    flags = parser.parse_args(args=args)
+    return parser.parse_args(args=args)
 
+    
+def _parse_flags(flags):
     repo_root = flags.reporoot
     language = flags.language
     stage_output = flags.stage_output
@@ -171,12 +182,14 @@ def _parse_args(args):
         for config_spec in flags.config.split(','):
             config_args = config_util.load_config_spec(config_spec,
                                                        config_sections,
-                                                       repl_vars,
                                                        language)
             pipeline_args.update(config_args)
 
+    print flags.pipeline_kwargs
     cmd_args = ast.literal_eval(flags.pipeline_kwargs)
     pipeline_args.update(cmd_args)
+    config_util.var_replace_dict(pipeline_args, repl_vars)
+    
     print 'Final args:'
     for (k, v) in pipeline_args.iteritems():
         print ' ', k, ':', v

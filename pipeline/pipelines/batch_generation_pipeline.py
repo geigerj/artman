@@ -127,5 +127,7 @@ def _get_artman_config_filenames(api_config_pattern, batch_apis):
 def _load_artman_config(artman_yaml, language, repo_root):
     sections = ['common']
     repl_vars = {'REPOROOT': repo_root}
-    return config_util.load_config_spec(
-        artman_yaml, sections, repl_vars, language)
+    spec = config_util.load_config_spec(
+        artman_yaml, sections, language)
+    config_util.var_replace_dict(spec, repl_vars)
+    return spec

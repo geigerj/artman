@@ -11,16 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 """Utils related to config files"""
 
 
-import os
 import yaml
 
 
-def load_config_spec(config_spec, config_sections, repl_vars, language):
+def load_config_spec(config_spec, config_sections, language):
     config_split = config_spec.strip().split(':')
     config_path = config_split[0]
     if len(config_split) > 1:
@@ -33,13 +30,10 @@ def load_config_spec(config_spec, config_sections, repl_vars, language):
     if language in all_config_data:
         data.update(all_config_data[language])
 
-    repl_vars['THISDIR'] = os.path.dirname(config_path)
-    var_replace_config_data(data, repl_vars)
-    del repl_vars['THISDIR']
     return data
 
 
-def var_replace_config_data(data, repl_vars):
+def var_replace_dict(data, repl_vars):
     for (k, v) in data.items():
         if type(v) is list:
             data[k] = [var_replace(lv, repl_vars) for lv in v]
