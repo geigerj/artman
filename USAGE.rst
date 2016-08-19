@@ -205,7 +205,6 @@ Ruby (logging)
        --language ruby \
         GapicClientPipeline
 
-
 Ruby also supports a mode that generates dummy proto classes, which allows
 YARD to generate and link to documentation for proto messages.
 
