@@ -82,6 +82,13 @@ class PrepareUploadDirTask(task_base.TaskBase):
 
     def execute(self, repo_root, tarfile):
         self.exec_command(['tar', '-C', repo_root, '-zcvf', tarfile, '.'])
+        size = os.path.getsize(tarfile)
+        if size > _ZOOKEEPER_NODE_DATA_SIZE_LIMIT:
+            raise ValueError(
+                'Size of merged local_repo was {}, exceeding the limit of {} '
+                'bytes; reduce the size of local_repo'.format(
+                    size,
+                    _ZOOKEEPER_NODE_DATA_SIZE_LIMIT))
 
 
 class CleanupTempDirsTask(task_base.TaskBase):
@@ -120,18 +127,10 @@ class PrepareGoogleapisDirTask(task_base.TaskBase):
         repo_dir = os.path.join(repo_root, "googleapis")
         # Write/overwrite the additonal files into the repo_dir so that user
         # can include additional files which are not in the public repo.
-        total_bytes = 0
         for f, content in files_dict.iteritems():
-            total_bytes += os.path.getsize(f)
             filename = os.path.join(repo_dir, f)
             if not os.path.exists(os.path.dirname(filename)):
                 os.makedirs(os.path.dirname(filename))
             with open(filename, "w+") as text_file:
                 text_file.write(base64.b64decode(content))
-        if total_bytes > _ZOOKEEPER_NODE_DATA_SIZE_LIMIT:
-            raise ValueError(
-                'Size of merged local_repo was {}, exceeding the limit of {} '
-                'bytes; reduce the size of local_repo'.format(
-                    total_bytes,
-                    _ZOOKEEPER_NODE_DATA_SIZE_LIMIT))
         return repo_dir
