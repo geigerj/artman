@@ -74,6 +74,14 @@ class BlobDownloadTask(task_base.TaskBase):
             print 'File downloaded to %s' % f.name
 
 
+def _validate_upload_size(size, limit):
+    if size > limit:
+        raise ValueError(
+            'Zipped size of merged local_repo is {}, exceeding the limit '
+            'of {} bytes; reduce the size of local_repo'.format(
+                size, limit))
+
+
 class PrepareUploadDirTask(task_base.TaskBase):
     """Compress pipeline dir_to_upload into a file which can be uploaded to GCS.
 
@@ -82,12 +90,8 @@ class PrepareUploadDirTask(task_base.TaskBase):
 
     def execute(self, repo_root, tarfile):
         self.exec_command(['tar', '-C', repo_root, '-zcvf', tarfile, '.'])
-        size = os.path.getsize(tarfile)
-        if size > _ZOOKEEPER_NODE_DATA_SIZE_LIMIT:
-            raise ValueError(
-                'Size of merged local_repo was {}, exceeding the limit of {} '
-                'bytes; reduce the size of local_repo'.format(
-                    size, _ZOOKEEPER_NODE_DATA_SIZE_LIMIT))
+        _validate_upload_size(
+            os.path.getsize(tarfile), _ZOOKEEPER_NODE_DATA_SIZE_LIMIT)
 
 
 class CleanupTempDirsTask(task_base.TaskBase):
