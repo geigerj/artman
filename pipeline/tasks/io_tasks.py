@@ -24,6 +24,11 @@ from gcloud import storage
 from pipeline.tasks import task_base
 
 
+# Maximum amount of data, in bytes, that can be stored in a zookeeper node. See
+# http://zookeeper.apache.org/doc/r3.1.2/api/org/apache/zookeeper/ZooKeeper.html
+_ZOOKEEPER_NODE_DATA_SIZE_LIMIT = 1048576
+
+
 class BlobUploadTask(task_base.TaskBase):
     """A task which uploads file to Google Cloud Storage.
 
@@ -115,10 +120,16 @@ class PrepareGoogleapisDirTask(task_base.TaskBase):
         repo_dir = os.path.join(repo_root, "googleapis")
         # Write/overwrite the additonal files into the repo_dir so that user
         # can include additional files which are not in the public repo.
+        total_bytes = 0
         for f, content in files_dict.iteritems():
+            total_bytes += os.path.getsize(f)
             filename = os.path.join(repo_dir, f)
             if not os.path.exists(os.path.dirname(filename)):
                 os.makedirs(os.path.dirname(filename))
             with open(filename, "w+") as text_file:
                 text_file.write(base64.b64decode(content))
+        if total_bytes > _ZOOKEEPER_NODE_DATA_SIZE_LIMIT:
+            raise ValueError('size of merged local_repo exceeds limit of {} '
+                             'bytes; reduce the size of local_repo'.format(
+                                 _ZOOKEEPER_NODE_DATA_SIZE_LIMIT))
         return repo_dir
