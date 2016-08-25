@@ -26,7 +26,7 @@ from pipeline.tasks import task_base
 
 # Maximum amount of data, in bytes, that can be stored in a zookeeper node. See
 # http://zookeeper.apache.org/doc/r3.1.2/api/org/apache/zookeeper/ZooKeeper.html
-_ZOOKEEPER_NODE_DATA_SIZE_LIMIT = 1048576
+_ZOOKEEPER_NODE_DATA_SIZE_LIMIT = 2 ** 20
 
 
 class BlobUploadTask(task_base.TaskBase):
@@ -129,7 +129,9 @@ class PrepareGoogleapisDirTask(task_base.TaskBase):
             with open(filename, "w+") as text_file:
                 text_file.write(base64.b64decode(content))
         if total_bytes > _ZOOKEEPER_NODE_DATA_SIZE_LIMIT:
-            raise ValueError('size of merged local_repo exceeds limit of {} '
-                             'bytes; reduce the size of local_repo'.format(
-                                 _ZOOKEEPER_NODE_DATA_SIZE_LIMIT))
+            raise ValueError(
+                'Size of merged local_repo was {}, exceeding the limit of {} '
+                'bytes; reduce the size of local_repo'.format(
+                    total_bytes,
+                    _ZOOKEEPER_NODE_DATA_SIZE_LIMIT))
         return repo_dir
