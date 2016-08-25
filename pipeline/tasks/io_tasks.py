@@ -87,8 +87,7 @@ class PrepareUploadDirTask(task_base.TaskBase):
             raise ValueError(
                 'Size of merged local_repo was {}, exceeding the limit of {} '
                 'bytes; reduce the size of local_repo'.format(
-                    size,
-                    _ZOOKEEPER_NODE_DATA_SIZE_LIMIT))
+                    size, _ZOOKEEPER_NODE_DATA_SIZE_LIMIT))
 
 
 class CleanupTempDirsTask(task_base.TaskBase):
