@@ -79,5 +79,7 @@ def cleaner(time_to_live):
                         jobboard.trash(job, my_name)
                     except exc.UnclaimableJob:
                         pass
+                # Zookeeper doesn't like getting hit with too many requests at
+                # once, but this seems to be a sufficient time to wait.
                 time.sleep(1)
     return _jobboard_consumer_factory('cleaner', execute)
