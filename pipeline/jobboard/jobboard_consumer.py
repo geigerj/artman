@@ -25,9 +25,6 @@ from taskflow.conductors import backends as conductor_backends
 from pipeline.utils import backend_helper
 
 
-TWELVE_HOURS_IN_SECONDS = 60 * 60 * 12
-
-
 def _jobboard_consumer_factory(description, execute):
     def inner(jobboard_name):
         conductor_id = os.getpid()
