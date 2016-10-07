@@ -15,37 +15,38 @@
 # limitations under the License.
 
 
-"""Main class to start conductor.
-"""
+"""Main class to start jobboard cleaner."""
 
 import argparse
-import logging as pylog
 
 from pipeline.jobboard import jobboard_consumer
 
 
+TWELVE_HOURS_IN_SECONDS = 60 * 60 * 12
+
+
 def main():
-  jobboard_name, log_local = _parse_args()
-  if log_local:
-      pylog.basicConfig()
-  executor = jobboard_consumer.conductor()
-  executor(jobboard_name)
+  jobboard_name, time_to_live = _parse_args()
+  cleaner = jobboard_consumer.cleaner(time_to_live)
+  cleaner(jobboard_name)
 
 def _parse_args():
   parser = _CreateArgumentParser()
   flags = parser.parse_args()
-  return flags.jobboard_name.lower(), flags.log_local
+  return flags.jobboard_name.lower(), flags.time_to_live
 
 def _CreateArgumentParser():
   parser = argparse.ArgumentParser()
   parser.add_argument(
-      "-l", "--log_local",
-      action='store_true',
-      help="Log to local console.")
+      "-t", "--time_to_live",
+      type=int,
+      default=TWELVE_HOURS_IN_SECONDS,
+      help="The time delta, in seconds, after creation when jobs should be "
+           "trashed.")
   parser.add_argument(
       "--jobboard_name",
       type=str,
-      default="remote",
+      required=True,
       help="The name of the jobboard to monitor.")
   return parser
 

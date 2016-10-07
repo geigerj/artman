@@ -63,6 +63,14 @@ Please note, there is no guarantee that your pipeline job will be claimed by the
 remote build server unless you choose a unique jobboard name that no one else is using.
 Otherwise, it can be picked up by another conductor process.
 
+You may find over time that jobs go stale. There is a script to remove stale jobs. By
+default it will find and remove jobs that are older than 12 hours, but the deadline at
+which jobs are considered stale is configurable using a flag.
+
+  ::
+     python start_cleaner.py --jobboard=<unique_jobboard_name> [--time_to_live SECONDS_BEFORE_STALE]
+     
+
 Config generation
 *****************
 
