@@ -18,7 +18,7 @@ import unittest
 
 from pipeline.pipelines import pipeline_factory
 from pipeline.utils import job_util
-from pipeline.conductors import gapic_conductor
+from pipeline.jobboard import jobboard_consumer
 
 
 class ConductorE2ETest(unittest.TestCase):
@@ -46,4 +46,4 @@ class ConductorE2ETest(unittest.TestCase):
 
 
 def _start_conductor(test_jobboard_name):
-    gapic_conductor.run(test_jobboard_name)
+    jobboard_consumer.conductor()(test_jobboard_name)

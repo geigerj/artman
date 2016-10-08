@@ -28,7 +28,8 @@ from pipeline.utils import backend_helper
 def _jobboard_consumer_factory(description, execute):
     def inner(jobboard_name):
         conductor_id = os.getpid()
-        print('Starting GAPIC {} with pid: {}'.format(description, conductor_id))
+        print('Starting GAPIC {} with pid: {}'.format(
+            description, conductor_id))
         my_name = '{}-{}'.format(description, conductor_id)
         persist_backend = backend_helper.default_persistence_backend()
         with contextlib.closing(persist_backend):
@@ -45,7 +46,7 @@ def _jobboard_consumer_factory(description, execute):
 # types. Turn this into an abstract class, and let its subclasses defines the
 # pipelines types they can execute. Task requirements needed by pipelines shall
 # be installed before conductor starts claiming jobs.
-def conductor(clean_after=False):
+def conductor():
     def execute(jobboard, my_name, persist_backend):
         cond = conductor_backends.fetch('blocking',
                                         my_name,
@@ -60,7 +61,6 @@ def conductor(clean_after=False):
             print('Conductor %s is stopping' % my_name)
             cond.stop()
             cond.wait()
-        
     return _jobboard_consumer_factory('conductor', execute)
 
 
@@ -71,11 +71,11 @@ def cleaner(time_to_live):
             for job in jobboard.iterjobs(
                     only_unclaimed=True, ensure_fresh=True):
                 age = (now - job.created_on).total_seconds()
-                    job, job.created_on, now)
                 if (age > time_to_live):
                     try:
                         jobboard.claim(job, my_name)
-                        print 'TRASH job {} from {}'.format(job, job.created_on)
+                        print 'TRASH job {} from {}'.format(
+                            job, job.created_on)
                         jobboard.trash(job, my_name)
                     except exc.UnclaimableJob:
                         pass
