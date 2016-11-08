@@ -67,6 +67,11 @@ class _PythonGrpcTaskFactory(GrpcTaskFactoryBase):
                                          '-m grpc.tools.protoc']})
         return super(_PythonGrpcTaskFactory, self).get_tasks(**kwargs)
 
+    def _get_grpc_codegen_tasks(self, **kwargs):
+        common_tasks = super(
+            _PythonGrpcTaskFactory, self)._get_grpc_codegen_tasks(**kwargs)
+        return [protoc_tasks.PythonPackageTask] + common_tasks
+
 
 class _GoGrpcTaskFactory(GrpcTaskFactoryBase):
     """Responsible for the protobuf/gRPC flow for Go language.

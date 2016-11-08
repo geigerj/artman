@@ -17,7 +17,10 @@
 import os
 import re
 import subprocess
+import tempfile
+import time
 import yaml
+
 from pipeline.tasks import packman_tasks
 from pipeline.tasks import task_base
 from pipeline.tasks.requirements import grpc_requirements
@@ -177,14 +180,13 @@ def _find_protobuf_path(toolkit_path):
 def _find_protos(proto_paths):
     """Searches along `proto_path` for .proto files and returns a list of
     paths"""
-    protos = []
     if type(proto_paths) is not list:
         raise ValueError("proto_paths must be a list")
     for path in proto_paths:
         for root, _, files in os.walk(path):
-            protos += [os.path.join(root, proto) for proto in files
-                       if os.path.splitext(proto)[1] == '.proto']
-    return protos
+            for proto in files:
+                if os.path.splitext(proto)[1] == '.proto':
+                    yield os.path.join(root, proto)
 
 
 def _group_by_dirname(protos):
@@ -249,7 +251,7 @@ class ProtoDescGenTask(task_base.TaskBase):
     def execute(self, src_proto_path, import_proto_path, output_dir,
                 api_name, toolkit_path, desc_proto_path=None):
         desc_proto_path = desc_proto_path or []
-        desc_protos = _find_protos(src_proto_path + desc_proto_path)
+        desc_protos = list(_find_protos(src_proto_path + desc_proto_path))
         header_proto_path = import_proto_path + desc_proto_path
         header_proto_path.extend(src_proto_path)
         desc_out_file = api_name + '.desc'
@@ -382,7 +384,12 @@ class GrpcPackmanTask(packman_tasks.PackmanTaskBase):
     default_provides = 'package_dir'
 
     def execute(self, language, api_name, output_dir, src_proto_path,
-                import_proto_path, packman_flags=None, repo_dir=None):
+                import_proto_path, packman_flags=None, repo_dir=None,
+                final_src_proto_path=None, final_import_proto_path=None):
+
+        src_proto_path = final_src_proto_path or src_proto_path
+        import_proto_path = final_import_proto_path or import_proto_path
+
         packman_flags = packman_flags or []
         api_name_arg = task_utils.packman_api_name(api_name)
         pkg_dir = _pkg_root_dir(output_dir, api_name, language)
@@ -455,3 +462,134 @@ class GoExtractImportBaseTask(task_base.TaskBase):
                 continue
             if 'package_name' in go_settings:
                 return go_settings.get('package_name')
+
+
+class PythonPackageTask(task_base.TaskBase):
+    """Copies source protos to a package that meets Python convention"""
+    default_provides = ('final_src_proto_path', 'final_import_proto_path')
+
+    # TODO: move common-protos list from packman to googleapis and import it
+    #   from there
+    common_protos = ['google.api', 'google.longrunning', 'google.rpc',
+                     'google.type', 'google.logging.type', 'google.protobuf']
+
+    _IDENTIFIER = '[A-Za-z_][A-Za-z_0-9]*'
+
+    _BASE_PROTO_REGEX = (
+        '(?P<prefix>{prefix})' +
+        '(?P<package>' + _IDENTIFIER +
+        '({separator}' + _IDENTIFIER + ')*{package_suffix})'
+        '(?P<suffix>{suffix})')
+
+    # E.g., `package google.foo.bar`
+    _PACKAGE_REGEX = re.compile(_BASE_PROTO_REGEX.format(
+        prefix='^package ',
+        separator='\\.',
+        package_suffix='',
+        suffix=''))
+
+    # E.g., `import "google/foo/bar";`
+    _IMPORT_REGEX = re.compile(_BASE_PROTO_REGEX.format(
+        prefix='^import "',
+        separator='/',
+        package_suffix='\\.proto',
+        suffix='";'))
+
+    # E.g., `  google.foo.bar.Message field = 1;`
+    _TYPE_REGEX = re.compile(_BASE_PROTO_REGEX.format(
+        prefix='\\s*(repeated|required|optional)?\\s*',
+        separator='\\.',
+        package_suffix='',
+        suffix='\\s+\\w+\\s+=\\s+[0-9].*'
+        ))
+
+    def execute(self, src_proto_path, import_proto_path):
+        tmpdir = os.path.join(
+            tempfile.gettempdir(), 'artman-python', str(int(time.time())))
+        new_src_dir = os.path.join(tmpdir, 'proto_src')
+        new_src_path = []
+        new_import_dir = os.path.join(tmpdir, 'proto_import')
+        new_import_path = [new_import_dir]
+
+        self._copy_and_transform_directories(
+            src_proto_path, new_src_dir, paths=new_src_path)
+        self._copy_and_transform_directories(import_proto_path, new_import_dir)
+
+        # Update src_proto_path, import_proto_path
+        return new_src_path, new_import_path
+
+    def _extract_base_dirs(self, proto_file):
+        """Removes non-package directories in the proto file path"""
+        with open(proto_file, 'r') as proto:
+            for line in proto:
+                pkg = self._PACKAGE_REGEX.match(line)
+                if pkg:
+                    pkg = pkg.group('package')
+                    break
+            if not pkg:
+                return ''
+
+        # Number of directories up that is the root for protos.
+        dirs = os.path.dirname(proto_file).split(os.path.sep)
+        return os.path.sep.join(dirs[len(dirs) - 1 - pkg.count('.'):])
+
+    def _transformer(self, pkg, sep):
+        """Add 'grpc' package after 'google' or 'google.cloud'
+
+        Works with arbitrary separator (e.g., '/' for import statements,
+        '.' for proto package statements, os.path.sep for filenames)
+        """
+        # Skip common protos
+        pkg_list = pkg.split(sep)
+
+        dotted = '.'.join(pkg_list)
+        for common_pkg in self.common_protos:
+            if dotted.startswith(common_pkg):
+                return sep.join(pkg_list)
+
+        if pkg_list[0] == 'google':
+            if pkg_list[1] == 'cloud':
+                return sep.join(['google', 'cloud', 'grpc'] + pkg_list[2:])
+            return sep.join(['google', 'cloud', 'grpc'] + pkg_list[1:])
+        return sep.join(pkg_list)
+
+    def _copy_proto(self, src, dest):
+        """Copies a proto while transforming its package"""
+        with open(src, 'r') as src_lines:
+            with open(dest, 'w+') as dest_file:
+                for line in src_lines:
+                    pkg = self._PACKAGE_REGEX.match(line)
+                    imprt = '' if pkg else self._IMPORT_REGEX.match(line)
+                    typ = '' if pkg or imprt else self._TYPE_REGEX.match(line)
+                    if pkg:
+                        dest_file.write('package {};\n'.format(
+                            self._transformer(pkg.group('package'), '.')))
+                    elif imprt:
+                        dest_file.write('import "{}";\n'.format(
+                            self._transformer(imprt.group('package'), '/')))
+                    elif typ:
+                        new_type = self._transformer(typ.group('package'), '.')
+                        dest_file.write('{prefix}{new_type}{suffix}\n'.format(
+                            prefix=typ.group('prefix'),
+                            new_type=new_type,
+                            suffix=typ.group('suffix')))
+                    else:
+                        dest_file.write(line)
+
+    def _copy_and_transform_directories(
+            self, src_directories, destination_directory, paths=None):
+        for path in src_directories:
+            protos = list(_find_protos([path]))
+            for proto in protos:
+                src_base_dirs = self._extract_base_dirs(proto)
+                sub_new_src = os.path.join(
+                    destination_directory,
+                    self._transformer(src_base_dirs, os.path.sep))
+                if paths is not None:
+                    paths.append(sub_new_src)
+
+                dest = os.path.join(sub_new_src, os.path.basename(proto))
+                if not os.path.exists(dest):
+                    self.exec_command(['mkdir', '-p', sub_new_src])
+                self._copy_proto(
+                    proto, os.path.join(sub_new_src, dest))
