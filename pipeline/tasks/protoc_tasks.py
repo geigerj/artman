@@ -52,7 +52,7 @@ class _SimpleProtoParams:
 
     @property
     def proto_compiler(self):
-        return 'protoc'
+        return ['protoc']
 
 
 class _JavaProtoParams:
@@ -78,7 +78,7 @@ class _JavaProtoParams:
 
     @property
     def proto_compiler(self):
-        return 'protoc'
+        return ['protoc']
 
 
 class _GoProtoParams:
@@ -107,7 +107,7 @@ class _GoProtoParams:
 
     @property
     def proto_compiler(self):
-        return 'protoc'
+        return ['protoc']
 
 
 class _PhpProtoParams:
@@ -132,7 +132,7 @@ class _PhpProtoParams:
 
     @property
     def proto_compiler(self):
-        return 'protoc'
+        return ['protoc']
 
 
 class _RubyProtoParams:
@@ -158,7 +158,30 @@ class _RubyProtoParams:
 
     @property
     def proto_compiler(self):
-        return 'grpc_tools_ruby_protoc'
+        return ['grpc_tools_ruby_protoc']
+
+
+class _PythonProtoParams:
+    def __init__(self):
+        self.path = None
+        self.params = lang_params.LANG_PARAMS_MAP['ruby']
+
+    def code_root(self, output_dir):
+        return self.params.code_root(output_dir)
+
+    def lang_out_param(self, output_dir, with_grpc):
+        return '--python_out={}'.format(self.code_root(output_dir))
+
+    def grpc_plugin_path(self, dummy_toolkit_path):
+        # No plugin for grpc.tools
+        return None
+
+    def grpc_out_param(self, output_dir):
+        return '--grpc_out=' + self.code_root(output_dir)
+
+    @property
+    def proto_compiler(self):
+        return ['python', '-m', 'grpc.tools.protoc']
 
 
 _PROTO_PARAMS_MAP = {
@@ -167,6 +190,7 @@ _PROTO_PARAMS_MAP = {
     'go': _GoProtoParams(),
     'csharp': _SimpleProtoParams('csharp'),
     'php': _PhpProtoParams(),
+    'python': _PythonProtoParams()
 }
 
 
@@ -178,7 +202,7 @@ def _find_protobuf_path(toolkit_path):
 
 
 def _find_protos(proto_paths):
-    """Searches along `proto_path` for .proto files and returns a list of
+    """Searches along `proto_path` for .proto files and returns a generator of
     paths"""
     if type(proto_paths) is not list:
         raise ValueError("proto_paths must be a list")
@@ -274,7 +298,12 @@ class ProtoDescGenTask(task_base.TaskBase):
 class ProtoCodeGenTask(task_base.TaskBase):
     """Generates protos"""
     def execute(self, language, src_proto_path, import_proto_path,
-                output_dir, api_name, toolkit_path):
+                output_dir, api_name, toolkit_path, final_src_proto_path=None,
+                final_import_proto_path=None):
+        # TODO: extend to all Proto*GenTasks
+        src_proto_path = final_src_proto_path or src_proto_path
+        import_proto_path = final_import_proto_path or import_proto_path
+
         proto_params = _PROTO_PARAMS_MAP[language]
         pkg_dir = _prepare_pkg_dir(output_dir, api_name, language)
         # protoc-gen-go must compile all protos in a package at the same time,
@@ -282,9 +311,8 @@ class ProtoCodeGenTask(task_base.TaskBase):
         # languages, so we do it that way for all of them.
         for (dirname, protos) in _group_by_dirname(
                 _find_protos(src_proto_path)).items():
-            print 'Generating protos {0}'.format(dirname)
             self.exec_command(
-                [proto_params.proto_compiler] +
+                proto_params.proto_compiler +
                 _protoc_header_params(
                     import_proto_path + src_proto_path, toolkit_path) +
                 _protoc_proto_params(proto_params, pkg_dir, with_grpc=False) +
@@ -306,7 +334,7 @@ class GrpcCodeGenTask(task_base.TaskBase):
                 _find_protos(src_proto_path)).items():
             print 'Running protoc with grpc plugin on {0}'.format(dirname)
             self.exec_command(
-                [proto_params.proto_compiler] +
+                proto_params.proto_compiler +
                 _protoc_header_params(
                     import_proto_path + src_proto_path, toolkit_path) +
                 _protoc_grpc_params(proto_params, pkg_dir, toolkit_path) +
@@ -328,7 +356,7 @@ class ProtoAndGrpcCodeGenTask(task_base.TaskBase):
                 _find_protos(src_proto_path)).items():
             print 'Running protoc and grpc plugin on {0}'.format(dirname)
             self.exec_command(
-                [proto_params.proto_compiler] +
+                proto_params.proto_compiler +
                 _protoc_header_params(
                     import_proto_path + src_proto_path, toolkit_path) +
                 _protoc_proto_params(proto_params, pkg_dir, with_grpc=True) +
@@ -495,28 +523,21 @@ class PythonPackageTask(task_base.TaskBase):
         package_suffix='\\.proto',
         suffix='";'))
 
-    # E.g., `  google.foo.bar.Message field = 1;`
-    _TYPE_REGEX = re.compile(_BASE_PROTO_REGEX.format(
-        prefix='\\s*(repeated|required|optional)?\\s*',
-        separator='\\.',
-        package_suffix='',
-        suffix='\\s+\\w+\\s+=\\s+[0-9].*'
-        ))
+    # TODO: add regex for documentation link updates?
 
     def execute(self, src_proto_path, import_proto_path):
         tmpdir = os.path.join(
             tempfile.gettempdir(), 'artman-python', str(int(time.time())))
-        new_src_dir = os.path.join(tmpdir, 'proto_src')
-        new_src_path = []
-        new_import_dir = os.path.join(tmpdir, 'proto_import')
-        new_import_path = [new_import_dir]
+        new_proto_dir = os.path.join(tmpdir, 'proto')
+        new_src_path = set()
+        new_import_path = [new_proto_dir]
 
         self._copy_and_transform_directories(
-            src_proto_path, new_src_dir, paths=new_src_path)
-        self._copy_and_transform_directories(import_proto_path, new_import_dir)
+            src_proto_path, new_proto_dir, paths=new_src_path)
+        self._copy_and_transform_directories(import_proto_path, new_proto_dir)
 
         # Update src_proto_path, import_proto_path
-        return new_src_path, new_import_path
+        return list(new_src_path), new_import_path
 
     def _extract_base_dirs(self, proto_file):
         """Removes non-package directories in the proto file path"""
@@ -554,25 +575,14 @@ class PythonPackageTask(task_base.TaskBase):
         return sep.join(pkg_list)
 
     def _copy_proto(self, src, dest):
-        """Copies a proto while transforming its package"""
+        """Copies a proto while fixing its imports"""
         with open(src, 'r') as src_lines:
             with open(dest, 'w+') as dest_file:
                 for line in src_lines:
-                    pkg = self._PACKAGE_REGEX.match(line)
-                    imprt = '' if pkg else self._IMPORT_REGEX.match(line)
-                    typ = '' if pkg or imprt else self._TYPE_REGEX.match(line)
-                    if pkg:
-                        dest_file.write('package {};\n'.format(
-                            self._transformer(pkg.group('package'), '.')))
-                    elif imprt:
+                    imprt = self._IMPORT_REGEX.match(line)
+                    if imprt:
                         dest_file.write('import "{}";\n'.format(
                             self._transformer(imprt.group('package'), '/')))
-                    elif typ:
-                        new_type = self._transformer(typ.group('package'), '.')
-                        dest_file.write('{prefix}{new_type}{suffix}\n'.format(
-                            prefix=typ.group('prefix'),
-                            new_type=new_type,
-                            suffix=typ.group('suffix')))
                     else:
                         dest_file.write(line)
 
@@ -586,7 +596,7 @@ class PythonPackageTask(task_base.TaskBase):
                     destination_directory,
                     self._transformer(src_base_dirs, os.path.sep))
                 if paths is not None:
-                    paths.append(sub_new_src)
+                    paths.add(sub_new_src)
 
                 dest = os.path.join(sub_new_src, os.path.basename(proto))
                 if not os.path.exists(dest):

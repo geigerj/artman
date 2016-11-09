@@ -60,17 +60,9 @@ class _JavaGrpcTaskFactory(GrpcTaskFactoryBase):
 
 class _PythonGrpcTaskFactory(GrpcTaskFactoryBase):
 
-    def get_tasks(self, **kwargs):
-        kwargs.update({'packman_flags': ['--proto_compiler',
-                                         'python',
-                                         '--proto_compiler_args',
-                                         '-m grpc.tools.protoc']})
-        return super(_PythonGrpcTaskFactory, self).get_tasks(**kwargs)
-
     def _get_grpc_codegen_tasks(self, **kwargs):
-        common_tasks = super(
-            _PythonGrpcTaskFactory, self)._get_grpc_codegen_tasks(**kwargs)
-        return [protoc_tasks.PythonPackageTask] + common_tasks
+        return [protoc_tasks.PythonPackageTask,
+                protoc_tasks.ProtoCodeGenTask]
 
 
 class _GoGrpcTaskFactory(GrpcTaskFactoryBase):
