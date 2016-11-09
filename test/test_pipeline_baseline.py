@@ -86,13 +86,15 @@ def _test_error(pipeline_name, language, config, pipeline_kwargs,
 
 
 @mock.patch('pipeline.utils.task_utils.run_gradle_task')
+@mock.patch('pipeline.tasks.protoc_tasks.PythonPackageTask._copy_proto')
 @mock.patch('subprocess.call')
 @mock.patch('subprocess.check_call')
 @mock.patch('subprocess.check_output')
+@mock.patch('time.time')
 @mock.patch('os.chdir')
 def _test_baseline(pipeline_name, config, extra_args, baseline,
-                   mock_chdir, mock_check_output, mock_check_call, mock_call,
-                   mock_gradle_task):
+                   mock_chdir, mock_time, mock_check_output, mock_check_call,
+                   mock_call, mock__copy_proto, mock_gradle_task):
     reporoot = os.path.abspath('.')
 
     # Execute pipeline args
@@ -104,6 +106,7 @@ def _test_baseline(pipeline_name, config, extra_args, baseline,
     mock_gradle_task.return_value = 'MOCK_GRADLE_TASK_OUTPUT'
     mock_call.return_value = 0
     mock_check_output.return_value = ''
+    mock_time.return_value = 1231234
 
     # Output_dir as defined in artman yaml file
     output_dir = os.path.join(reporoot, 'test/testdata/test_output')
@@ -167,8 +170,10 @@ def test_generator_errors(pipeline_name, language, extra_kwargs,
         ('GapicConfigPipeline', None, [], 'config_pipeline'),
         ('GrpcClientPipeline', 'python', [],
          'python_grpc_client_nopub_pipeline'),
-        ('GrpcClientPipeline', 'python', python_pub_extra_args,
-         'python_grpc_client_pub_pipeline'),
+        # TODO: re-enable test once Python gRPC flow uses packman to
+        #   produce package metadata.
+        # ('GrpcClientPipeline', 'python', python_pub_extra_args,
+        #  'python_grpc_client_pub_pipeline'),
         ('GapicClientPipeline', 'python', [],
          'python_gapic_client_pipeline'),
         ('GrpcClientPipeline', 'java', [],
