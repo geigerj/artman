@@ -18,7 +18,7 @@ import re
 import subprocess
 
 
-def run_gradle_task(task_name, task_path):
+def get_gradle_task_output(task_name, task_path):
     output = subprocess.check_output(
         ['./gradlew', task_name], cwd=task_path)
     # It is a convention that gradle task uses 'output: ' as
@@ -28,6 +28,12 @@ def run_gradle_task(task_name, task_path):
         if line.startswith(prefix):
             return line[len(prefix):]
     return None
+
+
+def gradle_task(toolkit_path, task_name, task_args):
+    """Generates a command for a gradle task."""
+    return [os.path.join(toolkit_path, 'gradlew'), '-p', toolkit_path,
+            task_name, '-Pclargs=' + ','.join(task_args)]
 
 
 def packman_api_name(api_name):

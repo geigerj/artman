@@ -61,8 +61,10 @@ class _JavaGrpcTaskFactory(GrpcTaskFactoryBase):
 class _PythonGrpcTaskFactory(GrpcTaskFactoryBase):
 
     def _get_grpc_codegen_tasks(self, **kwargs):
-        return [protoc_tasks.PythonPackageTask,
-                protoc_tasks.ProtoCodeGenTask]
+        return [protoc_tasks.PythonChangePackageTask,
+                protoc_tasks.ProtoDescGenTask,
+                protoc_tasks.ProtoCodeGenTask,
+                protoc_tasks.GrpcPackageMetadataGenTask]
 
 
 class _GoGrpcTaskFactory(GrpcTaskFactoryBase):

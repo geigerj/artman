@@ -170,10 +170,8 @@ def test_generator_errors(pipeline_name, language, extra_kwargs,
         ('GapicConfigPipeline', None, [], 'config_pipeline'),
         ('GrpcClientPipeline', 'python', [],
          'python_grpc_client_nopub_pipeline'),
-        # TODO: re-enable test once Python gRPC flow uses packman to
-        #   produce package metadata.
-        # ('GrpcClientPipeline', 'python', python_pub_extra_args,
-        #  'python_grpc_client_pub_pipeline'),
+        ('GrpcClientPipeline', 'python', python_pub_extra_args,
+         'python_grpc_client_pub_pipeline'),
         ('GapicClientPipeline', 'python', [],
          'python_gapic_client_pipeline'),
         ('GrpcClientPipeline', 'java', [],

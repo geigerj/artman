@@ -69,7 +69,7 @@ class _JavaProtoParams:
     def grpc_plugin_path(self, toolkit_path):
         if self.path is None:
             print 'start gradle process to locate GRPC Java plugin'
-            self.path = task_utils.run_gradle_task(
+            self.path = task_utils.get_gradle_task_output(
                 'showGrpcJavaPluginPath', toolkit_path)
         return self.path
 
@@ -197,7 +197,7 @@ _PROTO_PARAMS_MAP = {
 def _find_protobuf_path(toolkit_path):
     """Fetch and locate protobuf source"""
     print 'Searching for latest protobuf source'
-    return task_utils.run_gradle_task(
+    return task_utils.get_gradle_task_output(
         'showProtobufPath', toolkit_path)
 
 
@@ -297,10 +297,13 @@ class ProtoDescGenTask(task_base.TaskBase):
 
 class ProtoCodeGenTask(task_base.TaskBase):
     """Generates protos"""
+    # TODO: extend to all Proto*GenTasks?
+    default_provides = 'intermediate_package_dir'
+
     def execute(self, language, src_proto_path, import_proto_path,
                 output_dir, api_name, toolkit_path, final_src_proto_path=None,
                 final_import_proto_path=None):
-        # TODO: extend to all Proto*GenTasks
+        # TODO: extend to all Proto*GenTasks?
         src_proto_path = final_src_proto_path or src_proto_path
         import_proto_path = final_import_proto_path or import_proto_path
 
@@ -317,6 +320,8 @@ class ProtoCodeGenTask(task_base.TaskBase):
                     import_proto_path + src_proto_path, toolkit_path) +
                 _protoc_proto_params(proto_params, pkg_dir, with_grpc=False) +
                 protos)
+
+        return pkg_dir
 
     def validate(self):
         return [grpc_requirements.GrpcRequirements]
@@ -437,6 +442,29 @@ class GrpcPackmanTask(packman_tasks.PackmanTaskBase):
         return os.path.join(pkg_dir, language)
 
 
+class GrpcPackageMetadataGenTask(task_base.TaskBase):
+    default_provides = 'package_dir'
+
+    def execute(self, api_name, toolkit_path, descriptor_set, service_yaml,
+                intermediate_package_dir, output_dir, package_dependencies_yaml,
+                package_defaults_yaml, language):
+        service_args = ['--service_yaml=' + os.path.abspath(yaml)
+                        for yaml in service_yaml]
+        pkg_dir = os.path.join(output_dir, 'python', 'grpc-' + api_name)
+        args = [
+            '--descriptor_set=' + os.path.abspath(descriptor_set),
+            '--input=' + os.path.abspath(intermediate_package_dir),
+            '--output=' + os.path.join(pkg_dir),
+            '--dependencies_config=' + os.path.abspath(
+                package_dependencies_yaml),
+            '--defaults_config=' + os.path.abspath(package_defaults_yaml),
+            '--language=' + language
+        ] + service_args
+        self.exec_command(task_utils.gradle_task(
+            toolkit_path, 'runPackageMetadataGen', args))
+        return pkg_dir
+
+
 class JavaGrpcPackmanTask(GrpcPackmanTask):
 
     def execute(self, language, api_name, output_dir, src_proto_path,
@@ -492,7 +520,7 @@ class GoExtractImportBaseTask(task_base.TaskBase):
                 return go_settings.get('package_name')
 
 
-class PythonPackageTask(task_base.TaskBase):
+class PythonChangePackageTask(task_base.TaskBase):
     """Copies source protos to a package that meets Python convention"""
     default_provides = ('final_src_proto_path', 'final_import_proto_path')
 
