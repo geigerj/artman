@@ -295,78 +295,84 @@ class ProtoDescGenTask(task_base.TaskBase):
         return [grpc_requirements.GrpcRequirements]
 
 
-class ProtoCodeGenTask(task_base.TaskBase):
-    """Generates protos"""
-    # TODO: extend to all Proto*GenTasks?
+class ProtocCodeGenTaskBase(task_base.TaskBase):
     default_provides = 'intermediate_package_dir'
 
-    def execute(self, language, src_proto_path, import_proto_path,
-                output_dir, api_name, toolkit_path, final_src_proto_path=None,
-                final_import_proto_path=None):
-        # TODO: extend to all Proto*GenTasks?
+    def _execute_proto_codegen(
+            self, language, src_proto_path, import_proto_path,
+            output_dir, api_name, toolkit_path, gen_proto=False, gen_grpc=False,
+            final_src_proto_path=None, final_import_proto_path=None):
         src_proto_path = final_src_proto_path or src_proto_path
         import_proto_path = final_import_proto_path or import_proto_path
-
         proto_params = _PROTO_PARAMS_MAP[language]
         pkg_dir = _prepare_pkg_dir(output_dir, api_name, language)
-        # protoc-gen-go must compile all protos in a package at the same time,
-        # and *only* the protos in that package. This doesn't break other
-        # languages, so we do it that way for all of them.
-        for (dirname, protos) in _group_by_dirname(
-                _find_protos(src_proto_path)).items():
-            self.exec_command(
-                proto_params.proto_compiler +
-                _protoc_header_params(
-                    import_proto_path + src_proto_path, toolkit_path) +
-                _protoc_proto_params(proto_params, pkg_dir, with_grpc=False) +
-                protos)
+
+        if gen_proto:
+            protoc_proto_params = _protoc_proto_params(
+                proto_params, pkg_dir, with_grpc=True)
+        else:
+            protoc_proto_params = []
+
+        if gen_grpc:
+            protoc_grpc_params = _protoc_grpc_params(
+                proto_params, pkg_dir, toolkit_path)
+        else:
+            protoc_grpc_params = []
+
+            # protoc-gen-go must compile all protos in a package at the same time,
+            # and *only* the protos in that package. This doesn't break other
+            # languages, so we do it that way for all of them.
+            for (dirname, protos) in _group_by_dirname(
+                    _find_protos(src_proto_path)).items():
+                self.exec_command(
+                    proto_params.proto_compiler +
+                    _protoc_header_params(
+                        import_proto_path + src_proto_path, toolkit_path) +
+                    protoc_proto_params +
+                    protoc_grpc_params +
+                    protos)
 
         return pkg_dir
 
+
+class ProtoCodeGenTask(ProtocCodeGenTaskBase):
+    """Generates protos"""
+    def execute(self, language, src_proto_path, import_proto_path,
+                output_dir, api_name, toolkit_path, final_src_proto_path=None,
+                final_import_proto_path=None):
+        return self._execute_proto_codegen(
+            language, src_proto_path, import_proto_path, output_dir, api_name,
+            toolkit_path, gen_proto=True,
+            final_src_proto_path=final_src_proto_path,
+            final_import_proto_path=final_import_proto_path)
+
     def validate(self):
         return [grpc_requirements.GrpcRequirements]
 
 
-class GrpcCodeGenTask(task_base.TaskBase):
+class GrpcCodeGenTask(ProtocCodeGenTaskBase):
     """Generates the gRPC client library"""
     def execute(self, language, src_proto_path, import_proto_path,
                 toolkit_path, output_dir, api_name):
-        proto_params = _PROTO_PARAMS_MAP[language]
-        pkg_dir = _prepare_pkg_dir(output_dir, api_name, language)
-        # See the comments in ProtoCodeGenTask for why this needs to group the
-        # proto files by directory.
-        for (dirname, protos) in _group_by_dirname(
-                _find_protos(src_proto_path)).items():
-            print 'Running protoc with grpc plugin on {0}'.format(dirname)
-            self.exec_command(
-                proto_params.proto_compiler +
-                _protoc_header_params(
-                    import_proto_path + src_proto_path, toolkit_path) +
-                _protoc_grpc_params(proto_params, pkg_dir, toolkit_path) +
-                protos)
+        return self._execute_proto_codegen(
+            language, src_proto_path, import_proto_path, output_dir, api_name,
+            toolkit_path, gen_grpc=True,
+            final_src_proto_path=final_src_proto_path,
+            final_import_proto_path=final_import_proto_path)
 
     def validate(self):
         return [grpc_requirements.GrpcRequirements]
 
 
-class ProtoAndGrpcCodeGenTask(task_base.TaskBase):
+class ProtoAndGrpcCodeGenTask(ProtocCodeGenTaskBase):
     """Generates protos and the gRPC client library"""
     def execute(self, language, src_proto_path, import_proto_path,
                 toolkit_path, output_dir, api_name):
-        proto_params = _PROTO_PARAMS_MAP[language]
-        pkg_dir = _prepare_pkg_dir(output_dir, api_name, language)
-        # See the comments in ProtoCodeGenTask for why this needs to group the
-        # proto files by directory.
-        for (dirname, protos) in _group_by_dirname(
-                _find_protos(src_proto_path)).items():
-            print 'Running protoc and grpc plugin on {0}'.format(dirname)
-            self.exec_command(
-                proto_params.proto_compiler +
-                _protoc_header_params(
-                    import_proto_path + src_proto_path, toolkit_path) +
-                _protoc_proto_params(proto_params, pkg_dir, with_grpc=True) +
-                _protoc_grpc_params(proto_params, pkg_dir, toolkit_path) +
-                protos)
+        return self._execute_proto_codegen(
+            language, src_proto_path, import_proto_path, output_dir, api_name,
+            toolkit_path, gen_proto=True, gen_grpc=True,
+            final_src_proto_path=final_src_proto_path,
+            final_import_proto_path=final_import_proto_path)
 
     def validate(self):
         return [grpc_requirements.GrpcRequirements]
