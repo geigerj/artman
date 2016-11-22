@@ -530,11 +530,6 @@ class PythonChangePackageTask(task_base.TaskBase):
     """Copies source protos to a package that meets Python convention"""
     default_provides = ('final_src_proto_path', 'final_import_proto_path')
 
-    # TODO: move common-protos list from packman to googleapis and import it
-    #   from there
-    common_protos = ['google.api', 'google.longrunning', 'google.rpc',
-                     'google.type', 'google.logging.type', 'google.protobuf']
-
     _IDENTIFIER = '[A-Za-z_][A-Za-z_0-9]*'
 
     _BASE_PROTO_REGEX = (
@@ -559,7 +554,17 @@ class PythonChangePackageTask(task_base.TaskBase):
 
     # TODO: add regex for documentation link updates?
 
-    def execute(self, src_proto_path, import_proto_path):
+    def execute(self, src_proto_path, import_proto_path, common_protos_yaml):
+        with open(common_protos_yaml) as common_protos_file:
+            common_protos_data = yaml.load(common_protos_file)
+
+        # Treate google.protobuf as a common proto package, even though it is
+        # not included in the common-protos we generate because it is owned by
+        # the protobuf folks.
+        common_protos = ['google.protobuf']
+        for package in common_protos_data['packages']:
+            common_protos.append('google.' + package['name'].replace('/', '.'))
+
         tmpdir = os.path.join(
             tempfile.gettempdir(), 'artman-python', str(int(time.time())))
         new_proto_dir = os.path.join(tmpdir, 'proto')
@@ -567,8 +572,9 @@ class PythonChangePackageTask(task_base.TaskBase):
         new_import_path = [new_proto_dir]
 
         self._copy_and_transform_directories(
-            src_proto_path, new_proto_dir, paths=new_src_path)
-        self._copy_and_transform_directories(import_proto_path, new_proto_dir)
+            src_proto_path, new_proto_dir, common_protos, paths=new_src_path)
+        self._copy_and_transform_directories(
+            import_proto_path, new_proto_dir, common_protos)
 
         # Update src_proto_path, import_proto_path
         return list(new_src_path), new_import_path
@@ -588,7 +594,7 @@ class PythonChangePackageTask(task_base.TaskBase):
         dirs = os.path.dirname(proto_file).split(os.path.sep)
         return os.path.sep.join(dirs[len(dirs) - 1 - pkg.count('.'):])
 
-    def _transformer(self, pkg, sep):
+    def _transformer(self, pkg, sep, common_protos):
         """Add 'grpc' package after 'google' or 'google.cloud'
 
         Works with arbitrary separator (e.g., '/' for import statements,
@@ -598,7 +604,7 @@ class PythonChangePackageTask(task_base.TaskBase):
         pkg_list = pkg.split(sep)
 
         dotted = '.'.join(pkg_list)
-        for common_pkg in self.common_protos:
+        for common_pkg in common_protos:
             if dotted.startswith(common_pkg):
                 return sep.join(pkg_list)
 
@@ -608,7 +614,7 @@ class PythonChangePackageTask(task_base.TaskBase):
             return sep.join(['google', 'cloud', 'grpc'] + pkg_list[1:])
         return sep.join(pkg_list)
 
-    def _copy_proto(self, src, dest):
+    def _copy_proto(self, src, dest, common_protos):
         """Copies a proto while fixing its imports"""
         with open(src, 'r') as src_lines:
             with open(dest, 'w+') as dest_file:
@@ -616,19 +622,22 @@ class PythonChangePackageTask(task_base.TaskBase):
                     imprt = self._IMPORT_REGEX.match(line)
                     if imprt:
                         dest_file.write('import "{}";\n'.format(
-                            self._transformer(imprt.group('package'), '/')))
+                            self._transformer(
+                                imprt.group('package'), '/', common_protos)))
                     else:
                         dest_file.write(line)
 
     def _copy_and_transform_directories(
-            self, src_directories, destination_directory, paths=None):
+            self, src_directories, destination_directory, common_protos,
+            paths=None):
         for path in src_directories:
             protos = list(_find_protos([path]))
             for proto in protos:
                 src_base_dirs = self._extract_base_dirs(proto)
                 sub_new_src = os.path.join(
                     destination_directory,
-                    self._transformer(src_base_dirs, os.path.sep))
+                    self._transformer(
+                        src_base_dirs, os.path.sep, common_protos))
                 if paths is not None:
                     paths.add(sub_new_src)
 
@@ -636,4 +645,4 @@ class PythonChangePackageTask(task_base.TaskBase):
                 if not os.path.exists(dest):
                     self.exec_command(['mkdir', '-p', sub_new_src])
                 self._copy_proto(
-                    proto, os.path.join(sub_new_src, dest))
+                    proto, os.path.join(sub_new_src, dest), common_protos)
