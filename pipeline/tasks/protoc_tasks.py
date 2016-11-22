@@ -300,8 +300,9 @@ class ProtocCodeGenTaskBase(task_base.TaskBase):
 
     def _execute_proto_codegen(
             self, language, src_proto_path, import_proto_path,
-            output_dir, api_name, toolkit_path, gen_proto=False, gen_grpc=False,
-            final_src_proto_path=None, final_import_proto_path=None):
+            output_dir, api_name, toolkit_path, gen_proto=False,
+            gen_grpc=False, final_src_proto_path=None,
+            final_import_proto_path=None):
         src_proto_path = final_src_proto_path or src_proto_path
         import_proto_path = final_import_proto_path or import_proto_path
         proto_params = _PROTO_PARAMS_MAP[language]
@@ -319,9 +320,9 @@ class ProtocCodeGenTaskBase(task_base.TaskBase):
         else:
             protoc_grpc_params = []
 
-            # protoc-gen-go must compile all protos in a package at the same time,
-            # and *only* the protos in that package. This doesn't break other
-            # languages, so we do it that way for all of them.
+            # protoc-gen-go must compile all protos in a package at the same
+            # time, and *only* the protos in that package. This doesn't break
+            # other languages, so we do it that way for all of them.
             for (dirname, protos) in _group_by_dirname(
                     _find_protos(src_proto_path)).items():
                 self.exec_command(
@@ -353,7 +354,8 @@ class ProtoCodeGenTask(ProtocCodeGenTaskBase):
 class GrpcCodeGenTask(ProtocCodeGenTaskBase):
     """Generates the gRPC client library"""
     def execute(self, language, src_proto_path, import_proto_path,
-                toolkit_path, output_dir, api_name):
+                toolkit_path, output_dir, api_name, final_src_proto_path=None,
+                final_import_proto_path=None):
         return self._execute_proto_codegen(
             language, src_proto_path, import_proto_path, output_dir, api_name,
             toolkit_path, gen_grpc=True,
@@ -367,7 +369,8 @@ class GrpcCodeGenTask(ProtocCodeGenTaskBase):
 class ProtoAndGrpcCodeGenTask(ProtocCodeGenTaskBase):
     """Generates protos and the gRPC client library"""
     def execute(self, language, src_proto_path, import_proto_path,
-                toolkit_path, output_dir, api_name):
+                toolkit_path, output_dir, api_name, final_src_proto_path=None,
+                final_import_proto_path=None):
         return self._execute_proto_codegen(
             language, src_proto_path, import_proto_path, output_dir, api_name,
             toolkit_path, gen_proto=True, gen_grpc=True,
@@ -452,8 +455,8 @@ class GrpcPackageMetadataGenTask(task_base.TaskBase):
     default_provides = 'package_dir'
 
     def execute(self, api_name, toolkit_path, descriptor_set, service_yaml,
-                intermediate_package_dir, output_dir, package_dependencies_yaml,
-                package_defaults_yaml, language):
+                intermediate_package_dir, output_dir,
+                package_dependencies_yaml, package_defaults_yaml, language):
         service_args = ['--service_yaml=' + os.path.abspath(yaml)
                         for yaml in service_yaml]
         pkg_dir = os.path.join(output_dir, 'python', 'grpc-' + api_name)

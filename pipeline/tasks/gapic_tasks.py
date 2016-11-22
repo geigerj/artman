@@ -95,7 +95,8 @@ class GapicCodeGenTask(task_base.TaskBase):
             '--descriptor_set=' + os.path.abspath(descriptor_set), '--output='
             + os.path.abspath(code_root)
         ] + service_args + gapic_args
-        self.exec_command(task_utils.gradle_task(toolkit_path, 'runVGen', args))
+        self.exec_command(
+            task_utils.gradle_task(toolkit_path, 'runVGen', args))
 
         return code_root
 
