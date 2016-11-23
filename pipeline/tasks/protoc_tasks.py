@@ -460,14 +460,33 @@ class GrpcPackageMetadataGenTask(task_base.TaskBase):
         service_args = ['--service_yaml=' + os.path.abspath(yaml)
                         for yaml in service_yaml]
         pkg_dir = os.path.join(output_dir, 'python', 'grpc-' + api_name)
+
+        # TODO(geigerj): This section temporarily replicates packman behavior.
+        # Instead, these configuration values should be derived from the artman
+        # conifg.
+        packman_name = task_utils.packman_api_name(api_name)
+        packman_api_name_parts = packman_name.split('/')
+        packman_api_name = '/'.join(packman_api_name_parts[:-1])
+        packman_api_version = packman_api_name_parts[-1]
+        packman_api_shortname = packman_api_name.split('/')[-1]
+
+        # Currently corresponds to packman's `titlename`. To be replaced
+        # by data from service config; see googleapis/toolkit#270
+        full_name = ('Google ' + packman_api_shortname[0].upper() +
+                     packman_api_shortname[1:])
+
         args = [
             '--descriptor_set=' + os.path.abspath(descriptor_set),
             '--input=' + os.path.abspath(intermediate_package_dir),
-            '--output=' + os.path.join(pkg_dir),
+            '--output=' + os.path.abspath(pkg_dir),
             '--dependencies_config=' + os.path.abspath(
                 package_dependencies_yaml),
             '--defaults_config=' + os.path.abspath(package_defaults_yaml),
-            '--language=' + language
+            '--language=' + language,
+            '--short_name=' + packman_api_shortname,
+            '--name=' + full_name,
+            '--googleapis_path=' + packman_api_name,
+            '--version=' + packman_api_version
         ] + service_args
         self.exec_command(task_utils.gradle_task(
             toolkit_path, 'runPackageMetadataGen', args))
@@ -562,8 +581,7 @@ class PythonChangePackageTask(task_base.TaskBase):
             common_protos_data = yaml.load(common_protos_file)
 
         # Treate google.protobuf as a common proto package, even though it is
-        # not included in the common-protos we generate because it is owned by
-        # the protobuf folks.
+        # not included in the common-protos we generate.
         common_protos = ['google.protobuf']
         for package in common_protos_data['packages']:
             common_protos.append('google.' + package['name'].replace('/', '.'))
