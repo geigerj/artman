@@ -58,11 +58,12 @@ def format_calls(calls, bindings):
                       for (name, (args,), kwargs) in calls])
 
 
-def check_calls_match(expected_calls, actual_calls, bindings):
+def check_calls_match(baseline_file, expected_calls, actual_calls, bindings):
     mismatch_text = 'Mismatch between expected and actual subprocess calls.\n'
 
     def format_err(exp, act):
-        return mismatch_text + 'Expected:\n' + exp + '\nActual:\n' + act
+        return (mismatch_text + 'Baseline file: ' + baseline_file +
+                '.baseline\n' + 'Expected:\n' + exp + '\nActual:\n' + act)
     exp = format_calls(expected_calls, bindings)
     act = format_calls(actual_calls, bindings)
     assert exp == act, format_err(exp, act)
@@ -85,8 +86,8 @@ def _test_error(pipeline_name, language, config, pipeline_kwargs,
         execute_pipeline.main(args)
 
 
-@mock.patch('pipeline.utils.task_utils.run_gradle_task')
-@mock.patch('pipeline.tasks.protoc_tasks.PythonPackageTask._copy_proto')
+@mock.patch('pipeline.utils.task_utils.get_gradle_task_output')
+@mock.patch('pipeline.tasks.protoc_tasks.PythonChangePackageTask._copy_proto')
 @mock.patch('subprocess.call')
 @mock.patch('subprocess.check_call')
 @mock.patch('subprocess.check_output')
@@ -112,6 +113,7 @@ def _test_baseline(pipeline_name, config, extra_args, baseline,
     output_dir = os.path.join(reporoot, 'test/testdata/test_output')
 
     # Run pipeline
+    print 'executing with args: ' + str(args)
     execute_pipeline.main(args)
 
     bindings = {'CWD': reporoot, 'OUTPUT': output_dir}
@@ -119,14 +121,15 @@ def _test_baseline(pipeline_name, config, extra_args, baseline,
     # Compare with the expected subprocess calls.
     expected_checked_calls = get_expected_calls(
         baseline, bindings, True)
-    check_calls_match(expected_checked_calls,
+    check_calls_match(baseline, expected_checked_calls,
                       mock_check_output.mock_calls, bindings)
 
     # Some tasks can use subprocess.call() instead of check_call(), they are
     # tracked separately.
     expected_subprocess_call = get_expected_calls(
         baseline + '.call', bindings)
-    check_calls_match(expected_subprocess_call, mock_call.mock_calls, bindings)
+    check_calls_match(baseline, expected_subprocess_call, mock_call.mock_calls,
+                      bindings)
 
 
 python_pub_extra_args = ['--pipeline_kwargs', str({

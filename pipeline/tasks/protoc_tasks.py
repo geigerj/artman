@@ -320,18 +320,18 @@ class ProtocCodeGenTaskBase(task_base.TaskBase):
         else:
             protoc_grpc_params = []
 
-            # protoc-gen-go must compile all protos in a package at the same
-            # time, and *only* the protos in that package. This doesn't break
-            # other languages, so we do it that way for all of them.
-            for (dirname, protos) in _group_by_dirname(
-                    _find_protos(src_proto_path)).items():
-                self.exec_command(
-                    proto_params.proto_compiler +
-                    _protoc_header_params(
-                        import_proto_path + src_proto_path, toolkit_path) +
-                    protoc_proto_params +
-                    protoc_grpc_params +
-                    protos)
+        # protoc-gen-go must compile all protos in a package at the same
+        # time, and *only* the protos in that package. This doesn't break
+        # other languages, so we do it that way for all of them.
+        for (dirname, protos) in _group_by_dirname(
+                _find_protos(src_proto_path)).items():
+            self.exec_command(
+                proto_params.proto_compiler +
+                _protoc_header_params(
+                    import_proto_path + src_proto_path, toolkit_path) +
+                protoc_proto_params +
+                protoc_grpc_params +
+                protos)
 
         return pkg_dir
 
