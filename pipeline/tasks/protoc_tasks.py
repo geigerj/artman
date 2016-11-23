@@ -555,7 +555,7 @@ class PythonChangePackageTask(task_base.TaskBase):
         package_suffix='\\.proto',
         suffix='";'))
 
-    # TODO: add regex for documentation link updates?
+    # TODO (geigerj): add regex for documentation link updates?
 
     def execute(self, src_proto_path, import_proto_path, common_protos_yaml):
         with open(common_protos_yaml) as common_protos_file:
@@ -583,7 +583,7 @@ class PythonChangePackageTask(task_base.TaskBase):
         return list(new_src_path), new_import_path
 
     def _extract_base_dirs(self, proto_file):
-        """Removes non-package directories in the proto file path"""
+        """Returns proto file path derived from the package name"""
         with open(proto_file, 'r') as proto:
             for line in proto:
                 pkg = self._PACKAGE_REGEX.match(line)
@@ -593,11 +593,9 @@ class PythonChangePackageTask(task_base.TaskBase):
             if not pkg:
                 return ''
 
-        # Number of directories up that is the root for protos.
-        dirs = os.path.dirname(proto_file).split(os.path.sep)
-        return os.path.sep.join(dirs[len(dirs) - 1 - pkg.count('.'):])
+        return os.path.sep.join(pkg.split('.'))
 
-    def _transformer(self, pkg, sep, common_protos):
+    def _transform(self, pkg, sep, common_protos):
         """Add 'grpc' package after 'google' or 'google.cloud'
 
         Works with arbitrary separator (e.g., '/' for import statements,
@@ -625,7 +623,7 @@ class PythonChangePackageTask(task_base.TaskBase):
                     imprt = self._IMPORT_REGEX.match(line)
                     if imprt:
                         dest_file.write('import "{}";\n'.format(
-                            self._transformer(
+                            self._transform(
                                 imprt.group('package'), '/', common_protos)))
                     else:
                         dest_file.write(line)
@@ -639,7 +637,7 @@ class PythonChangePackageTask(task_base.TaskBase):
                 src_base_dirs = self._extract_base_dirs(proto)
                 sub_new_src = os.path.join(
                     destination_directory,
-                    self._transformer(
+                    self._transform(
                         src_base_dirs, os.path.sep, common_protos))
                 if paths is not None:
                     paths.add(sub_new_src)
