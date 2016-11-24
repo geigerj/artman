@@ -164,7 +164,7 @@ class _RubyProtoParams:
 class _PythonProtoParams:
     def __init__(self):
         self.path = None
-        self.params = lang_params.LANG_PARAMS_MAP['ruby']
+        self.params = lang_params.LANG_PARAMS_MAP['python']
 
     def code_root(self, output_dir):
         return self.params.code_root(output_dir)
@@ -463,7 +463,7 @@ class GrpcPackageMetadataGenTask(task_base.TaskBase):
 
         # TODO(geigerj): This section temporarily replicates packman behavior.
         # Instead, these configuration values should be derived from the artman
-        # conifg.
+        # config.
         packman_name = task_utils.packman_api_name(api_name)
         packman_api_name_parts = packman_name.split('/')
         packman_api_name = '/'.join(packman_api_name_parts[:-1])
@@ -580,7 +580,7 @@ class PythonChangePackageTask(task_base.TaskBase):
         with open(common_protos_yaml) as common_protos_file:
             common_protos_data = yaml.load(common_protos_file)
 
-        # Treate google.protobuf as a common proto package, even though it is
+        # Treat google.protobuf as a common proto package, even though it is
         # not included in the common-protos we generate.
         common_protos = ['google.protobuf']
         for package in common_protos_data['packages']:

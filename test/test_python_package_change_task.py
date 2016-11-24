@@ -38,7 +38,13 @@ class PythonPackageChangeTest(unittest.TestCase):
             base_dirs = self._TASK._extract_base_dirs(
                 os.path.join('a', 'test', 'path', 'to', 'google', 'service',
                              'v1', 'a.proto'))
-        self.assertEqual(base_dirs, os.path.join('google', 'service', 'v1'))
+            repeated_base_dirs = self._TASK._extract_base_dirs(
+                os.path.join('home', 'foo', 'workspaces', 'google', 'service',
+                             'v1', 'googleapis', 'google', 'service', 'v1',
+                             'a.proto'))
+        expected = os.path.join('google', 'service', 'v1')
+        self.assertEqual(base_dirs, expected)
+        self.assertEqual(repeated_base_dirs, expected)
 
     def test__transfom(self):
         # Simple package transformations with arbitrary separator
@@ -54,7 +60,7 @@ class PythonPackageChangeTest(unittest.TestCase):
             self._TASK._transform('google/common', '/', ['google.common']),
             'google/common')
         self.assertEqual(
-            self._TASK._transform('google/uncommon', '/', ['google.service']),
+            self._TASK._transform('google/uncommon', '/', ['google.common']),
             'google/cloud/grpc/uncommon')
 
         # Don't transform non-Google protos
