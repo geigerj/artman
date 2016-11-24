@@ -17,8 +17,6 @@
 import os
 import re
 import subprocess
-import tempfile
-import time
 import yaml
 
 from pipeline.tasks import packman_tasks
@@ -201,18 +199,6 @@ def _find_protobuf_path(toolkit_path):
         'showProtobufPath', toolkit_path)
 
 
-def _find_protos(proto_paths):
-    """Searches along `proto_path` for .proto files and returns a generator of
-    paths"""
-    if type(proto_paths) is not list:
-        raise ValueError("proto_paths must be a list")
-    for path in proto_paths:
-        for root, _, files in os.walk(path):
-            for proto in files:
-                if os.path.splitext(proto)[1] == '.proto':
-                    yield os.path.join(root, proto)
-
-
 def _group_by_dirname(protos):
     """Groups the file paths by direct parent directory.
 
@@ -275,7 +261,8 @@ class ProtoDescGenTask(task_base.TaskBase):
     def execute(self, src_proto_path, import_proto_path, output_dir,
                 api_name, toolkit_path, desc_proto_path=None):
         desc_proto_path = desc_proto_path or []
-        desc_protos = list(_find_protos(src_proto_path + desc_proto_path))
+        desc_protos = list(
+            task_utils.find_protos(src_proto_path + desc_proto_path))
         header_proto_path = import_proto_path + desc_proto_path
         header_proto_path.extend(src_proto_path)
         desc_out_file = api_name + '.desc'
@@ -324,7 +311,7 @@ class ProtocCodeGenTaskBase(task_base.TaskBase):
         # time, and *only* the protos in that package. This doesn't break
         # other languages, so we do it that way for all of them.
         for (dirname, protos) in _group_by_dirname(
-                _find_protos(src_proto_path)).items():
+                task_utils.find_protos(src_proto_path)).items():
             self.exec_command(
                 proto_params.proto_compiler +
                 _protoc_header_params(
@@ -546,122 +533,3 @@ class GoExtractImportBaseTask(task_base.TaskBase):
                 continue
             if 'package_name' in go_settings:
                 return go_settings.get('package_name')
-
-
-class PythonChangePackageTask(task_base.TaskBase):
-    """Copies source protos to a package that meets Python convention"""
-    default_provides = ('final_src_proto_path', 'final_import_proto_path')
-
-    _IDENTIFIER = '[A-Za-z_][A-Za-z_0-9]*'
-
-    _BASE_PROTO_REGEX = (
-        '(?P<prefix>{prefix})' +
-        '(?P<package>' + _IDENTIFIER +
-        '({separator}' + _IDENTIFIER + ')*{package_suffix})'
-        '(?P<suffix>{suffix})')
-
-    # E.g., `package google.foo.bar`
-    _PACKAGE_REGEX = re.compile(_BASE_PROTO_REGEX.format(
-        prefix='^package ',
-        separator='\\.',
-        package_suffix='',
-        suffix=''))
-
-    # E.g., `import "google/foo/bar";`
-    _IMPORT_REGEX = re.compile(_BASE_PROTO_REGEX.format(
-        prefix='^import "',
-        separator='/',
-        package_suffix='\\.proto',
-        suffix='";'))
-
-    # TODO (geigerj): add regex for documentation link updates?
-
-    def execute(self, src_proto_path, import_proto_path, common_protos_yaml):
-        with open(common_protos_yaml) as common_protos_file:
-            common_protos_data = yaml.load(common_protos_file)
-
-        # Treat google.protobuf as a common proto package, even though it is
-        # not included in the common-protos we generate.
-        common_protos = ['google.protobuf']
-        for package in common_protos_data['packages']:
-            common_protos.append('google.' + package['name'].replace('/', '.'))
-
-        tmpdir = os.path.join(
-            tempfile.gettempdir(), 'artman-python', str(int(time.time())))
-        new_proto_dir = os.path.join(tmpdir, 'proto')
-        new_src_path = set()
-        new_import_path = [new_proto_dir]
-
-        self._copy_and_transform_directories(
-            src_proto_path, new_proto_dir, common_protos, paths=new_src_path)
-        self._copy_and_transform_directories(
-            import_proto_path, new_proto_dir, common_protos)
-
-        # Update src_proto_path, import_proto_path
-        return list(new_src_path), new_import_path
-
-    def _extract_base_dirs(self, proto_file):
-        """Returns proto file path derived from the package name"""
-        with open(proto_file, 'r') as proto:
-            for line in proto:
-                pkg = self._PACKAGE_REGEX.match(line)
-                if pkg:
-                    pkg = pkg.group('package')
-                    break
-            if not pkg:
-                return ''
-
-        return os.path.sep.join(pkg.split('.'))
-
-    def _transform(self, pkg, sep, common_protos):
-        """Add 'grpc' package after 'google' or 'google.cloud'
-
-        Works with arbitrary separator (e.g., '/' for import statements,
-        '.' for proto package statements, os.path.sep for filenames)
-        """
-        # Skip common protos
-        pkg_list = pkg.split(sep)
-
-        dotted = '.'.join(pkg_list)
-        for common_pkg in common_protos:
-            if dotted.startswith(common_pkg):
-                return sep.join(pkg_list)
-
-        if pkg_list[0] == 'google':
-            if pkg_list[1] == 'cloud':
-                return sep.join(['google', 'cloud', 'grpc'] + pkg_list[2:])
-            return sep.join(['google', 'cloud', 'grpc'] + pkg_list[1:])
-        return sep.join(pkg_list)
-
-    def _copy_proto(self, src, dest, common_protos):
-        """Copies a proto while fixing its imports"""
-        with open(src, 'r') as src_lines:
-            with open(dest, 'w+') as dest_file:
-                for line in src_lines:
-                    imprt = self._IMPORT_REGEX.match(line)
-                    if imprt:
-                        dest_file.write('import "{}";\n'.format(
-                            self._transform(
-                                imprt.group('package'), '/', common_protos)))
-                    else:
-                        dest_file.write(line)
-
-    def _copy_and_transform_directories(
-            self, src_directories, destination_directory, common_protos,
-            paths=None):
-        for path in src_directories:
-            protos = list(_find_protos([path]))
-            for proto in protos:
-                src_base_dirs = self._extract_base_dirs(proto)
-                sub_new_src = os.path.join(
-                    destination_directory,
-                    self._transform(
-                        src_base_dirs, os.path.sep, common_protos))
-                if paths is not None:
-                    paths.add(sub_new_src)
-
-                dest = os.path.join(sub_new_src, os.path.basename(proto))
-                if not os.path.exists(dest):
-                    self.exec_command(['mkdir', '-p', sub_new_src])
-                self._copy_proto(
-                    proto, os.path.join(sub_new_src, dest), common_protos)

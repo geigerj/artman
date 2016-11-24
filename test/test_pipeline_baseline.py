@@ -87,7 +87,7 @@ def _test_error(pipeline_name, language, config, pipeline_kwargs,
 
 
 @mock.patch('pipeline.utils.task_utils.get_gradle_task_output')
-@mock.patch('pipeline.tasks.protoc_tasks.PythonChangePackageTask.execute')
+@mock.patch('pipeline.tasks.python_grpc_tasks.PythonChangePackageTask.execute')
 @mock.patch('subprocess.call')
 @mock.patch('subprocess.check_call')
 @mock.patch('subprocess.check_output')

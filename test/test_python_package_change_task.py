@@ -16,12 +16,12 @@ import mock
 import os
 import unittest
 
-from pipeline.tasks import protoc_tasks
+from pipeline.tasks import python_grpc_tasks
 
 
 class PythonPackageChangeTest(unittest.TestCase):
 
-    _TASK = protoc_tasks.PythonChangePackageTask()
+    _TASK = python_grpc_tasks.PythonChangePackageTask()
 
     _PROTO_FILE = [
         '# Comment line\n',
