@@ -39,7 +39,7 @@ class PythonPackageChangeTest(unittest.TestCase):
                 os.path.join('a', 'test', 'path', 'to', 'google', 'service',
                              'v1', 'a.proto'))
             repeated_base_dirs = self._TASK._extract_base_dirs(
-                os.path.join('home', 'foo', 'workspaces', 'google', 'service',
+                os.path.join('home', 'foo', 'workspaces', 'google', 'some',
                              'v1', 'googleapis', 'google', 'service', 'v1',
                              'a.proto'))
         expected = os.path.join('google', 'service', 'v1')

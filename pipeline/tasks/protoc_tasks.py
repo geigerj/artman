@@ -49,7 +49,7 @@ class _SimpleProtoParams:
         return '--grpc_out=' + self.code_root(output_dir)
 
     @property
-    def proto_compiler(self):
+    def proto_compiler_command(self):
         return ['protoc']
 
 
@@ -75,7 +75,7 @@ class _JavaProtoParams:
         return '--grpc_out=' + self.code_root(output_dir)
 
     @property
-    def proto_compiler(self):
+    def proto_compiler_command(self):
         return ['protoc']
 
 
@@ -104,7 +104,7 @@ class _GoProtoParams:
         return None
 
     @property
-    def proto_compiler(self):
+    def proto_compiler_command(self):
         return ['protoc']
 
 
@@ -129,7 +129,7 @@ class _PhpProtoParams:
         return '--grpc_out=' + self.code_root(output_dir)
 
     @property
-    def proto_compiler(self):
+    def proto_compiler_command(self):
         return ['protoc']
 
 
@@ -155,7 +155,7 @@ class _RubyProtoParams:
         return '--grpc_out=' + self.code_root(output_dir)
 
     @property
-    def proto_compiler(self):
+    def proto_compiler_command(self):
         return ['grpc_tools_ruby_protoc']
 
 
@@ -178,7 +178,7 @@ class _PythonProtoParams:
         return '--grpc_out=' + self.code_root(output_dir)
 
     @property
-    def proto_compiler(self):
+    def proto_compiler_command(self):
         return ['python', '-m', 'grpc.tools.protoc']
 
 
@@ -313,7 +313,7 @@ class ProtocCodeGenTaskBase(task_base.TaskBase):
         for (dirname, protos) in _group_by_dirname(
                 task_utils.find_protos(src_proto_path)).items():
             self.exec_command(
-                proto_params.proto_compiler +
+                proto_params.proto_compiler_command +
                 _protoc_header_params(
                     import_proto_path + src_proto_path, toolkit_path) +
                 protoc_proto_params +
