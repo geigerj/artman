@@ -27,7 +27,7 @@ from taskflow.patterns import linear_flow
 
 # kwargs required by multiple pipelines
 COMMON_REQUIRED = ['src_proto_path', 'import_proto_path', 'toolkit_path',
-                   'output_dir', 'api_name']
+                   'output_dir', 'short_name', 'version']
 
 
 def _load_remote_parameters(kwargs):

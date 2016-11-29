@@ -26,7 +26,8 @@ class GapicConfigGenTask(task_base.TaskBase):
     default_provides = 'gapic_config_dir'
 
     def execute(self, toolkit_path, descriptor_set, service_yaml,
-                output_dir, api_name):
+                output_dir, short_name, version):
+        api_name = task_utils.api_name(short_name, version)
         config_gen_dir = os.path.join(output_dir, api_name + '-config-gen')
         self.exec_command(['mkdir', '-p', config_gen_dir])
         config_gen_path = os.path.join(config_gen_dir,
@@ -82,7 +83,9 @@ class GapicCodeGenTask(task_base.TaskBase):
     default_provides = 'gapic_code_dir'
 
     def execute(self, language, toolkit_path, descriptor_set, service_yaml,
-                gapic_api_yaml, gapic_language_yaml, output_dir, api_name):
+                gapic_api_yaml, gapic_language_yaml, output_dir, short_name,
+                version):
+        api_name = task_utils.api_name(short_name, version)
         code_root = os.path.join(output_dir,
                                  api_name + '-gapic-gen-' + language)
         self.exec_command(['rm', '-rf', code_root])
@@ -128,8 +131,10 @@ class GapicCopyTask(task_base.TaskBase):
 class GapicPackmanTask(packman_tasks.PackmanTaskBase):
     default_provides = 'package_dir'
 
-    def execute(self, language, api_name, final_repo_dir, skip_packman=False):
+    def execute(self, language, short_name, version, final_repo_dir,
+                skip_packman=False):
         if not skip_packman:
+            api_name = task_utils.api_name(short_name, version)
             # TODO: Use TaskBase.exec_command()
             self.run_packman(language,
                              task_utils.packman_api_name(api_name),
