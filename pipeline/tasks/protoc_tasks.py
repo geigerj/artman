@@ -241,13 +241,14 @@ def _protoc_grpc_params(proto_params, pkg_dir, toolkit_path):
     return params
 
 
-def _pkg_root_dir(output_dir, short_name, language):
-    return os.path.join(output_dir, short_name + '-gen-' + language)
+def _pkg_root_dir(output_dir, short_name, version, language):
+    api_name = task_utils.api_name(short_name, version)
+    return os.path.join(output_dir, api_name + '-gen-' + language)
 
 
-def _prepare_pkg_dir(output_dir, short_name, language):
+def _prepare_pkg_dir(output_dir, short_name, version, language):
     proto_params = _PROTO_PARAMS_MAP[language]
-    pkg_dir = _pkg_root_dir(output_dir, short_name, language)
+    pkg_dir = _pkg_root_dir(output_dir, short_name, version, language)
     subprocess.check_output([
         'mkdir', '-p', proto_params.code_root(pkg_dir)],
         stderr=subprocess.STDOUT)
@@ -259,13 +260,13 @@ class ProtoDescGenTask(task_base.TaskBase):
     default_provides = 'descriptor_set'
 
     def execute(self, src_proto_path, import_proto_path, output_dir,
-                short_name, toolkit_path, desc_proto_path=None):
+                short_name, version, toolkit_path, desc_proto_path=None):
         desc_proto_path = desc_proto_path or []
         desc_protos = list(
             task_utils.find_protos(src_proto_path + desc_proto_path))
         header_proto_path = import_proto_path + desc_proto_path
         header_proto_path.extend(src_proto_path)
-        desc_out_file = short_name + '.desc'
+        desc_out_file = task_utils.api_name(short_name, version) + '.desc'
         print 'Compiling descriptors for {0}'.format(desc_protos)
         self.exec_command(['mkdir', '-p', output_dir])
         # DescGen don't use _group_by_dirname right now because
@@ -287,13 +288,13 @@ class ProtocCodeGenTaskBase(task_base.TaskBase):
 
     def _execute_proto_codegen(
             self, language, src_proto_path, import_proto_path,
-            output_dir, short_name, toolkit_path, gen_proto=False,
+            output_dir, short_name, version, toolkit_path, gen_proto=False,
             gen_grpc=False, final_src_proto_path=None,
             final_import_proto_path=None):
         src_proto_path = final_src_proto_path or src_proto_path
         import_proto_path = final_import_proto_path or import_proto_path
         proto_params = _PROTO_PARAMS_MAP[language]
-        pkg_dir = _prepare_pkg_dir(output_dir, short_name, language)
+        pkg_dir = _prepare_pkg_dir(output_dir, short_name, version, language)
 
         if gen_proto:
             protoc_proto_params = _protoc_proto_params(
@@ -326,11 +327,11 @@ class ProtocCodeGenTaskBase(task_base.TaskBase):
 class ProtoCodeGenTask(ProtocCodeGenTaskBase):
     """Generates protos"""
     def execute(self, language, src_proto_path, import_proto_path,
-                output_dir, short_name, toolkit_path,
+                output_dir, short_name, version, toolkit_path,
                 final_src_proto_path=None, final_import_proto_path=None):
         return self._execute_proto_codegen(
             language, src_proto_path, import_proto_path, output_dir,
-            short_name, toolkit_path, gen_proto=True,
+            short_name, version, toolkit_path, gen_proto=True,
             final_src_proto_path=final_src_proto_path,
             final_import_proto_path=final_import_proto_path)
 
@@ -341,11 +342,11 @@ class ProtoCodeGenTask(ProtocCodeGenTaskBase):
 class GrpcCodeGenTask(ProtocCodeGenTaskBase):
     """Generates the gRPC client library"""
     def execute(self, language, src_proto_path, import_proto_path,
-                toolkit_path, output_dir, short_name,
+                toolkit_path, output_dir, short_name, version,
                 final_src_proto_path=None, final_import_proto_path=None):
         return self._execute_proto_codegen(
             language, src_proto_path, import_proto_path, output_dir,
-            short_name, toolkit_path, gen_grpc=True,
+            short_name, version, toolkit_path, gen_grpc=True,
             final_src_proto_path=final_src_proto_path,
             final_import_proto_path=final_import_proto_path)
 
@@ -356,11 +357,11 @@ class GrpcCodeGenTask(ProtocCodeGenTaskBase):
 class ProtoAndGrpcCodeGenTask(ProtocCodeGenTaskBase):
     """Generates protos and the gRPC client library"""
     def execute(self, language, src_proto_path, import_proto_path,
-                toolkit_path, output_dir, short_name,
+                toolkit_path, output_dir, short_name, version,
                 final_src_proto_path=None, final_import_proto_path=None):
         return self._execute_proto_codegen(
             language, src_proto_path, import_proto_path, output_dir,
-            short_name, toolkit_path, gen_proto=True, gen_grpc=True,
+            short_name, version, toolkit_path, gen_proto=True, gen_grpc=True,
             final_src_proto_path=final_src_proto_path,
             final_import_proto_path=final_import_proto_path)
 
@@ -379,9 +380,10 @@ class GoLangUpdateImportsTask(task_base.TaskBase):
     code.
     """
 
-    def execute(self, short_name, language, go_import_base,
+    def execute(self, short_name, version, language, go_import_base,
                 output_dir, final_repo_dir):
-        pkg_dir = _prepare_pkg_dir(output_dir, short_name, language)
+        pkg_dir = _prepare_pkg_dir(output_dir, short_name, version, language)
+        print pkg_dir
         for pbfile in self.find_pb_files(pkg_dir):
             out_file = os.path.join(final_repo_dir, 'proto',
                                     os.path.relpath(pbfile, pkg_dir))
@@ -423,7 +425,7 @@ class GrpcPackmanTask(packman_tasks.PackmanTaskBase):
         packman_flags = packman_flags or []
         api_name_arg = task_utils.packman_api_name(
             task_utils.api_name(short_name, version, is_cloud_api))
-        pkg_dir = _pkg_root_dir(output_dir, short_name, language)
+        pkg_dir = _pkg_root_dir(output_dir, short_name, version, language)
         arg_list = [language, api_name_arg, '-o', pkg_dir,
                     '--package_prefix', 'grpc-']
 
@@ -507,9 +509,9 @@ class RubyGrpcCopyTask(task_base.TaskBase):
     """Copies the generated protos and gRPC client library to
     the final_repo_dir/lib.
     """
-    def execute(self, short_name, language, output_dir,
+    def execute(self, short_name, version, language, output_dir,
                 final_repo_dir):
-        pkg_dir = _pkg_root_dir(output_dir, short_name, language)
+        pkg_dir = _pkg_root_dir(output_dir, short_name, version, language)
         final_output_dir = os.path.join(final_repo_dir, 'lib')
         print "Copying " + pkg_dir + "/* to " + final_output_dir
         if not os.path.exists(final_output_dir):
