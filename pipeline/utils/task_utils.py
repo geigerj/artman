@@ -36,10 +36,10 @@ def gradle_task(toolkit_path, task_name, task_args):
             task_name, '-Pclargs=' + ','.join(task_args)]
 
 
-def api_name(short_name, version, organization_name):
+def api_name(short_name, api_version, organization_name):
     """Canonical name for an API; used to generate output directories and
     package name"""
-    return '-'.join([organization_name, short_name, version])
+    return '-'.join([organization_name, short_name, api_version])
 
 
 def packman_api_name(api_name):
