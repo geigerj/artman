@@ -459,21 +459,22 @@ class GrpcPackageMetadataGenTask(task_base.TaskBase):
     default_provides = 'package_dir'
 
     def execute(self, api_name, api_version, organization_name, toolkit_path,
-                descriptor_set, service_yaml, intermediate_package_dir,
-                output_dir, package_dependencies_yaml, package_defaults_yaml,
-                language):
+                descriptor_set, src_proto_path, service_yaml,
+                intermediate_package_dir, output_dir,
+                package_dependencies_yaml, package_defaults_yaml, language,
+                repo_root):
         service_args = ['--service_yaml=' + os.path.abspath(yaml)
                         for yaml in service_yaml]
 
-        # TODO(geigerj): This section temporarily replicates packman behavior.
-        # Instead, these configuration values should be derived from the artman
-        # config.
+        # The path under googleapis linked to in the package metadata is the
+        # last common ancestor of all source proto paths.
+        googleapis_dir = self._googleapis_dir(repo_root)
+        googleapis_path = os.path.commonprefix(
+            [os.path.relpath(p, googleapis_dir) for p in src_proto_path])
+
         api_full_name = task_utils.api_full_name(
             api_name, api_version, organization_name)
         pkg_dir = os.path.join(output_dir, 'python', 'grpc-' + api_full_name)
-        packman_name = task_utils.packman_api_name(api_full_name)
-        packman_api_name_parts = packman_name.split('/')
-        packman_api_name = '/'.join(packman_api_name_parts[:-1])
 
         # Currently corresponds to packman's `titlename`. To be replaced
         # by data from service config; see googleapis/toolkit#270
@@ -490,12 +491,16 @@ class GrpcPackageMetadataGenTask(task_base.TaskBase):
             '--language=' + language,
             '--short_name=' + api_name,
             '--name=' + packman_title_name,
-            '--googleapis_path=' + packman_api_name,
+            '--googleapis_path=' + googleapis_path,
             '--version=' + api_version
         ] + service_args
         self.exec_command(task_utils.gradle_task(
             toolkit_path, 'runPackageMetadataGen', args))
         return pkg_dir
+
+    # Separated so that this can be mocked for testing
+    def _googleapis_dir(self, repo_root):
+        return os.path.join(repo_root, 'googleapis')
 
 
 class JavaGrpcPackmanTask(GrpcPackmanTask):
