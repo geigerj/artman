@@ -26,8 +26,8 @@ class GapicConfigGenTask(task_base.TaskBase):
     default_provides = 'gapic_config_dir'
 
     def execute(self, toolkit_path, descriptor_set, service_yaml,
-                output_dir, short_name, version):
-        api_name = task_utils.api_name(short_name, version)
+                output_dir, short_name, version, is_cloud_api):
+        api_name = task_utils.api_name(short_name, version, is_cloud_api)
         config_gen_dir = os.path.join(output_dir, api_name + '-config-gen')
         self.exec_command(['mkdir', '-p', config_gen_dir])
         config_gen_path = os.path.join(config_gen_dir,
@@ -84,8 +84,8 @@ class GapicCodeGenTask(task_base.TaskBase):
 
     def execute(self, language, toolkit_path, descriptor_set, service_yaml,
                 gapic_api_yaml, gapic_language_yaml, output_dir, short_name,
-                version):
-        api_name = task_utils.api_name(short_name, version)
+                version, is_cloud_api):
+        api_name = task_utils.api_name(short_name, version, is_cloud_api)
         code_root = os.path.join(output_dir,
                                  api_name + '-gapic-gen-' + language)
         self.exec_command(['rm', '-rf', code_root])
