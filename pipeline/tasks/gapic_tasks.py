@@ -27,11 +27,10 @@ class GapicConfigGenTask(task_base.TaskBase):
 
     def execute(self, toolkit_path, descriptor_set, service_yaml,
                 output_dir, short_name, version):
-        api_name = task_utils.api_name(short_name, version)
-        config_gen_dir = os.path.join(output_dir, api_name + '-config-gen')
+        config_gen_dir = os.path.join(output_dir, short_name + '-config-gen')
         self.exec_command(['mkdir', '-p', config_gen_dir])
         config_gen_path = os.path.join(config_gen_dir,
-                                       api_name + '_gapic.yaml')
+                                       short_name + '_gapic.yaml')
         service_args = ['--service_yaml=' + os.path.abspath(yaml)
                         for yaml in service_yaml]
         args = [
@@ -85,9 +84,8 @@ class GapicCodeGenTask(task_base.TaskBase):
     def execute(self, language, toolkit_path, descriptor_set, service_yaml,
                 gapic_api_yaml, gapic_language_yaml, output_dir, short_name,
                 version):
-        api_name = task_utils.api_name(short_name, version)
         code_root = os.path.join(output_dir,
-                                 api_name + '-gapic-gen-' + language)
+                                 short_name + '-gapic-gen-' + language)
         self.exec_command(['rm', '-rf', code_root])
         gapic_yaml = gapic_api_yaml + gapic_language_yaml
         gapic_args = ['--gapic_yaml=' + os.path.abspath(yaml)

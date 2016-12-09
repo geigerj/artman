@@ -17,7 +17,6 @@
 import os
 
 from pipeline.tasks import task_base
-from pipeline.utils import task_utils
 
 
 class StagingOutputDirTask(task_base.TaskBase):
@@ -25,11 +24,9 @@ class StagingOutputDirTask(task_base.TaskBase):
     """
     default_provides = ['staging_code_dir', 'staging_lang_api_dir']
 
-    def execute(self, language, short_name, version, gapic_code_dir,
-                staging_repo_dir):
-        api_name = task_utils.api_name(short_name, version)
+    def execute(self, language, short_name, gapic_code_dir, staging_repo_dir):
         return [gapic_code_dir,
-                os.path.join(staging_repo_dir, language, api_name)]
+                os.path.join(staging_repo_dir, language, short_name)]
 
 
 class StagingCleanTask(task_base.TaskBase):
