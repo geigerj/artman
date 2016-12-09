@@ -1,5 +1,5 @@
 common:
-  short_name: library
+  api_name: library
   api_version: v1
   organization_name: google-cloud
   proto_gen_pkg_deps:
