@@ -36,11 +36,10 @@ def gradle_task(toolkit_path, task_name, task_args):
             task_name, '-Pclargs=' + ','.join(task_args)]
 
 
-def api_name(short_name, version, is_cloud):
+def api_name(short_name, version, organization_name):
     """Canonical name for an API; used to generate output directories and
     package name"""
-    cloud_prefix = 'cloud-' if is_cloud else ''
-    return 'google-{}{}-{}'.format(cloud_prefix, short_name, version)
+    return '-'.join([organization_name, short_name, version])
 
 
 def packman_api_name(api_name):
