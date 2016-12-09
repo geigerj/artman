@@ -413,16 +413,16 @@ class GoLangUpdateImportsTask(task_base.TaskBase):
 class GrpcPackmanTask(packman_tasks.PackmanTaskBase):
     default_provides = 'package_dir'
 
-    def execute(self, language, short_name, version, output_dir,
-                src_proto_path, import_proto_path, packman_flags=None,
-                repo_dir=None, final_src_proto_path=None,
+    def execute(self, language, short_name, version, is_cloud_api,
+                output_dir, src_proto_path, import_proto_path,
+                packman_flags=None, repo_dir=None, final_src_proto_path=None,
                 final_import_proto_path=None):
         src_proto_path = final_src_proto_path or src_proto_path
         import_proto_path = final_import_proto_path or import_proto_path
 
         packman_flags = packman_flags or []
         api_name_arg = task_utils.packman_api_name(
-            task_utils.api_name(short_name, version))
+            task_utils.api_name(short_name, version, is_cloud_api))
         pkg_dir = _pkg_root_dir(output_dir, short_name, language)
         arg_list = [language, api_name_arg, '-o', pkg_dir,
                     '--package_prefix', 'grpc-']
@@ -443,16 +443,17 @@ class GrpcPackmanTask(packman_tasks.PackmanTaskBase):
 class GrpcPackageMetadataGenTask(task_base.TaskBase):
     default_provides = 'package_dir'
 
-    def execute(self, short_name, version, toolkit_path, descriptor_set,
-                service_yaml, intermediate_package_dir, output_dir,
-                package_dependencies_yaml, package_defaults_yaml, language):
+    def execute(self, short_name, version, is_cloud_api, toolkit_path,
+                descriptor_set, service_yaml, intermediate_package_dir,
+                output_dir, package_dependencies_yaml, package_defaults_yaml,
+                language):
         service_args = ['--service_yaml=' + os.path.abspath(yaml)
                         for yaml in service_yaml]
 
         # TODO(geigerj): This section temporarily replicates packman behavior.
         # Instead, these configuration values should be derived from the artman
         # config.
-        api_name = task_utils.api_name(short_name, version)
+        api_name = task_utils.api_name(short_name, version, is_cloud_api)
         pkg_dir = os.path.join(output_dir, 'python', 'grpc-' + api_name)
         packman_name = task_utils.packman_api_name(api_name)
         packman_api_name_parts = packman_name.split('/')
@@ -483,7 +484,7 @@ class GrpcPackageMetadataGenTask(task_base.TaskBase):
 
 class JavaGrpcPackmanTask(GrpcPackmanTask):
 
-    def execute(self, language, short_name, version, output_dir,
+    def execute(self, language, short_name, version, is_cloud_api, output_dir,
                 src_proto_path, import_proto_path, gapic_api_yaml,
                 packman_flags=None, repo_dir=None, proto_gen_pkg_deps=None):
         proto_gen_pkg_deps = proto_gen_pkg_deps or []
@@ -497,8 +498,9 @@ class JavaGrpcPackmanTask(GrpcPackmanTask):
                 gapic_yaml = os.path.abspath(gapic_api_yaml[0])
                 packman_flags += ['--gapic_yaml', gapic_yaml]
         return super(JavaGrpcPackmanTask, self).execute(
-            language, short_name, version, output_dir, src_proto_path,
-            import_proto_path, packman_flags, repo_dir)
+            language, short_name, version, is_cloud_api, output_dir,
+            src_proto_path, import_proto_path, packman_flags=packman_flags,
+            repo_dir=repo_dir)
 
 
 class RubyGrpcCopyTask(task_base.TaskBase):

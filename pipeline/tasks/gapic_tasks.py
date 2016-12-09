@@ -129,10 +129,10 @@ class GapicCopyTask(task_base.TaskBase):
 class GapicPackmanTask(packman_tasks.PackmanTaskBase):
     default_provides = 'package_dir'
 
-    def execute(self, language, short_name, version, final_repo_dir,
-                skip_packman=False):
+    def execute(self, language, short_name, version, is_cloud_api,
+                final_repo_dir, skip_packman=False):
         if not skip_packman:
-            api_name = task_utils.api_name(short_name, version)
+            api_name = task_utils.api_name(short_name, version, is_cloud_api)
             # TODO: Use TaskBase.exec_command()
             self.run_packman(language,
                              task_utils.packman_api_name(api_name),
