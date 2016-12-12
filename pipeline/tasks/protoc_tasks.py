@@ -476,11 +476,6 @@ class GrpcPackageMetadataGenTask(task_base.TaskBase):
             api_name, api_version, organization_name)
         pkg_dir = os.path.join(output_dir, 'python', 'grpc-' + api_full_name)
 
-        # Currently corresponds to packman's `titlename`. To be replaced
-        # by data from service config; see googleapis/toolkit#270
-        packman_title_name = ('Google ' + api_name[0].upper() +
-                              api_name[1:])
-
         args = [
             '--descriptor_set=' + os.path.abspath(descriptor_set),
             '--input=' + os.path.abspath(intermediate_package_dir),
@@ -490,7 +485,6 @@ class GrpcPackageMetadataGenTask(task_base.TaskBase):
             '--defaults_config=' + os.path.abspath(package_defaults_yaml),
             '--language=' + language,
             '--short_name=' + api_name,
-            '--name=' + packman_title_name,
             '--googleapis_path=' + googleapis_path,
             '--version=' + api_version
         ] + service_args
