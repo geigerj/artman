@@ -468,6 +468,7 @@ class GrpcPackageMetadataGenTask(task_base.TaskBase):
 
         # The path under googleapis linked to in the package metadata is the
         # last common ancestor of all source proto paths.
+        # TODO (geigerj): remove this and switch to using PackageMetadataConfig
         googleapis_dir = self._googleapis_dir(repo_root)
         googleapis_path = os.path.commonprefix(
             [os.path.relpath(p, googleapis_dir) for p in src_proto_path])
@@ -493,6 +494,7 @@ class GrpcPackageMetadataGenTask(task_base.TaskBase):
         return pkg_dir
 
     # Separated so that this can be mocked for testing
+    # TODO (geigerj): remove this and switch to PackageMetadataConfig
     def _googleapis_dir(self, repo_root):
         return os.path.join(repo_root, 'googleapis')
 
