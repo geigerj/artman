@@ -66,7 +66,7 @@ class PackageMetadataConfigGenTask(task_base.TaskBase):
             output_dir, api_full_name + '_package.yaml')
         with open(package_metadata_config, 'w') as f:
             yaml.dump(config, f, default_flow_style=False)
-        
+
         return package_metadata_config
 
     # TODO(geigerj): modify old packman configs to use terminology consisitent
@@ -84,8 +84,7 @@ class PackageMetadataConfigGenTask(task_base.TaskBase):
                     'Invalid package config format: "{}", {}'.format(
                         lang, input_config[lang]))
         return output_config
-    
+
     # Separated so that this can be mocked for testing
     def _googleapis_dir(self, repo_root):
         return os.path.join(repo_root, 'googleapis')
-
