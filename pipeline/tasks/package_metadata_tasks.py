@@ -28,7 +28,7 @@ class PackageMetadataConfigGenTask(task_base.TaskBase):
     def execute(self, api_name, api_version, organization_name, output_dir,
                 package_dependencies_yaml, package_defaults_yaml, repo_root,
                 src_proto_path):
-        googleapis_dir = self._googleapis_dir(repo_root)
+        googleapis_dir = os.path.join(repo_root, 'googleapis')
         googleapis_path = os.path.commonprefix(
             [os.path.relpath(p, googleapis_dir) for p in src_proto_path])
         api_full_name = task_utils.api_full_name(
@@ -50,8 +50,17 @@ class PackageMetadataConfigGenTask(task_base.TaskBase):
             'package_name': {
                 'default': api_full_name
             },
-            'package_version': self._construct_lang_version_dict(
-                package_defaults['semver']),
+            # TODO (geigerj): replace hardcoded value once
+            #   GrpcPackageMetadataGen is using new config. Instead,
+            #   change dependencies.yaml to use dict, and use
+            #
+            # 'package_version': self._construct_lang_version_dict(
+            #     package_defaults['semver']),
+            'package_version': {
+                'python': {
+                    'lower': '0.14.0',
+                    'upper': '0.15.0dev'
+                }},
             'gax_version': self._construct_lang_version_dict(
                 package_dependencies['gax']),
             'proto_version': self._construct_lang_version_dict(
@@ -86,5 +95,50 @@ class PackageMetadataConfigGenTask(task_base.TaskBase):
         return output_config
 
     # Separated so that this can be mocked for testing
+    def _write_yaml(self, config_dict, dest):
+        with open(dest, 'w') as f:
+            yaml.dump(config_dict, f, default_flow_style=False)
+
+
+class GrpcPackageMetadataGenTask(task_base.TaskBase):
+    default_provides = 'package_dir'
+
+    def execute(self, api_name, api_version, organization_name, toolkit_path,
+                descriptor_set, src_proto_path, service_yaml,
+                intermediate_package_dir, output_dir,
+                package_dependencies_yaml, package_defaults_yaml, language,
+                repo_root):
+        service_args = ['--service_yaml=' + os.path.abspath(yaml)
+                        for yaml in service_yaml]
+
+        # The path under googleapis linked to in the package metadata is the
+        # last common ancestor of all source proto paths.
+        # TODO (geigerj): remove this and switch to using PackageMetadataConfig
+        googleapis_dir = self._googleapis_dir(repo_root)
+        googleapis_path = os.path.commonprefix(
+            [os.path.relpath(p, googleapis_dir) for p in src_proto_path])
+
+        api_full_name = task_utils.api_full_name(
+            api_name, api_version, organization_name)
+        pkg_dir = os.path.join(output_dir, 'python', 'grpc-' + api_full_name)
+
+        args = [
+            '--descriptor_set=' + os.path.abspath(descriptor_set),
+            '--input=' + os.path.abspath(intermediate_package_dir),
+            '--output=' + os.path.abspath(pkg_dir),
+            '--dependencies_config=' + os.path.abspath(
+                package_dependencies_yaml),
+            '--defaults_config=' + os.path.abspath(package_defaults_yaml),
+            '--language=' + language,
+            '--short_name=' + api_name,
+            '--googleapis_path=' + googleapis_path,
+            '--version=' + api_version
+        ] + service_args
+        self.exec_command(task_utils.gradle_task(
+            toolkit_path, 'runGrpcMetadataGen', args))
+        return pkg_dir
+
+    # Separated so that this can be mocked for testing
+    # TODO (geigerj): remove this and switch to PackageMetadataConfig
     def _googleapis_dir(self, repo_root):
         return os.path.join(repo_root, 'googleapis')
