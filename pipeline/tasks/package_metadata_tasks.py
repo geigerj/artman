@@ -50,7 +50,7 @@ class PackageMetadataConfigGenTask(task_base.TaskBase):
 
         config.update(package_dependencies)
         config.update(package_defaults)
-        
+
         package_metadata_config = os.path.join(
             output_dir, api_full_name + '_package.yaml')
         with open(package_metadata_config, 'w') as f:
