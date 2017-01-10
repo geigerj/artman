@@ -53,8 +53,7 @@ class PackageMetadataConfigGenTask(task_base.TaskBase):
 
         package_metadata_config = os.path.join(
             output_dir, api_full_name + '_package.yaml')
-        with open(package_metadata_config, 'w') as f:
-            yaml.dump(config, f, default_flow_style=False)
+        self._write_yaml(config, package_metadata_config)
 
         return package_metadata_config
 
