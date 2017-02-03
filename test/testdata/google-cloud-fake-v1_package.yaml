@@ -55,5 +55,5 @@ package_name:
 proto_path: ../path/to/protos
 short_name: fake
 major_version: v1
-proto_gen_pkg_deps:
+proto_deps:
 - googleapis-common-protos
