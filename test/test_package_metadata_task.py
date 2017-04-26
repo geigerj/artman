@@ -56,7 +56,7 @@ class PackageMetadataConfigTest(unittest.TestCase):
             package_type="grpc_client",
             src_proto_path=['path/to/protos'],
             generated_package_version={'lower': '0.17.29', 'upper': '0.18dev'},
-            development_status='beta'
+            release_level='beta'
         )
         with open(os.path.join(str(self.output_dir),
                                'google-cloud-fake-v1_package.yaml')) as f:

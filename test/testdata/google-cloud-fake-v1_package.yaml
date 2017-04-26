@@ -14,7 +14,7 @@ generated_package_version:
     lower: '0.7.1'
   php:
     lower: '0.1.0'
-development_status:
+release_level:
   python: beta
 auth_version:
   python:

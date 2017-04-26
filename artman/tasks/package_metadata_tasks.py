@@ -34,7 +34,7 @@ class PackageMetadataConfigGenTask(task_base.TaskBase):
     def execute(self, api_name, api_version, organization_name, output_dir,
                 package_dependencies_yaml, package_defaults_yaml, proto_deps,
                 language, local_paths, src_proto_path, package_type,
-                gapic_api_yaml, generation_layer=None, development_status=None,
+                gapic_api_yaml, generation_layer=None, release_level=None,
                 generated_package_version=None):
         googleapis_dir = local_paths['googleapis']
         googleapis_path = os.path.commonprefix(
@@ -52,9 +52,9 @@ class PackageMetadataConfigGenTask(task_base.TaskBase):
         if generated_package_version is not None:
             package_defaults['generated_package_version'][language] = (
                 generated_package_version)
-        if development_status is not None:
-            package_defaults['development_status'][language] = (
-                development_status)
+        if release_level is not None:
+            package_defaults['release_level'][language] = (
+                release_level)
 
         gapic_config_name = ''
         if len(gapic_api_yaml) > 0:
