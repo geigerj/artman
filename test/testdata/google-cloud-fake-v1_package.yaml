@@ -62,3 +62,5 @@ proto_deps:
 package_type: grpc_client
 gapic_config_name: ''
 dependency_type: 'release'
+src_proto_path:
+- path/to/protos

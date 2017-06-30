@@ -90,6 +90,7 @@ class PackageMetadataConfigGenTask(task_base.TaskBase):
             'package_type': package_type,
             'dependency_type': dependency_type,
             'gapic_config_name': gapic_config_name,
+            'src_proto_path': src_proto_path,
         }
 
         if proto_test_deps:
